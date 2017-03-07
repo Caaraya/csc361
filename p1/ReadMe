@@ -1,0 +1,9 @@
+Student Number: V00781339
+Lab section: B05
+
+using the lab udp server examle I set up the main function with socket parameters and set the sock options
+I made sure that the input parameters were correct including the host, argument list count, and directory for the search(getDirectory). if any of these were incorrect the program exits.
+using select with the appropriate socket numbers for input the the response from the client, I added the functionality to press q to close the socket and quit the application
+If a request is detected the program separates the input by " " in "separateString" and starts parsing the response getting in "generate response" that handles the response to the client, server notification and string parsing
+
+Note: I couldn't get my test cases to excecute properly in Testfile.sh, however I'm still including them
