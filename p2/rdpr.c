@@ -1,13 +1,14 @@
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netdb.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <dirent.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <time.h>
+#include <sys/time.h>
+#include <assert.h>
+
+#include "helpers.h"
 
 // TCP Server
 /*
@@ -16,39 +17,6 @@ http://stackoverflow.com/questions/8872988/properly-close-a-tcp-socket?rq=1
 http://www.linuxhowtos.org/C_C++/socket.htm
 
 */
-void sendMsg(int sock,char *sentstr,struct sockaddr* saptr, socklen_t flen)
-{
-	//send request(do we need to handle large files?)
-	if (sendto(sock,sentstr,strlen(sentstr),0, saptr, flen)==-1) 
-	{
-		perror("sending failed closing socket and exiting application...\n");
-		close(sock);
-		exit(EXIT_FAILURE);
-	}
-}
-
-char* getFileContent(char* dir)
-{
-    char* filecontent;
-    long filesize;
-    
-    FILE * f = fopen(dir, "rb");
-    if(f == NULL)
-    {
-        return NULL;
-    }
-    else
-    {
-        fseek(f, 0, SEEK_END);
-        filesize = ftell(f);
-        rewind(f);
-        filecontent = malloc(filesize * (sizeof(char)));
-        fread(filecontent, sizeof(char), filesize, f);
-        fclose(f);
-        return filecontent;
-    }
-}
- 
 int main(int argc, char **argv)
 {
    if(argc != 4){
@@ -56,39 +24,50 @@ int main(int argc, char **argv)
 		return 0;
 	}
     
-    //initialize socket data
-	int sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	struct sockaddr_in sa;
-
-	memset(&sa,0, sizeof sa);
-	sa.sin_family = AF_INET;
-	sa.sin_port = htons(atoi(argv[2]));
-	inet_pton(AF_INET, argv[1], &(sa.sin_addr));
-
-	socklen_t flen;
-	ssize_t rsize;
-	char buffer[8][1024];
- 
-   char* filecontent = getFileContent(argv[3]);
-   
-   if(filecontent == NULL)
+    char* host_ip = argv[1];
+    int host_port = atoi(argv[2]);
+    char* sender_ip;
+    int sender_port;
+    char* filename = argv[3];
+    
+    char* filecontent = getFileContent(argv[3]);
+    
+    if(filecontent == NULL)
    {
         perror("Could not find provided file...\n");
-		close(sock);
 		exit(EXIT_FAILURE);
    }
-   
-   flen = sizeof(sa);
+    //initialize socket data
+    //set up host
+	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+	
+    if(sock < 0)
+    {
+        perror("Could not open socket..\n");
+		exit(EXIT_FAILURE);
+    }
+    
+	struct sockaddr_in sa_host;
+
+	memset(&sa,0, sizeof sa);
+	sa_host.sin_family = AF_INET;
+	sa_host.sin_addr.s_addr = inet_addr(host_ip);
+	sa_host.sin_port = host_port;
+	
+	socklen_t flen = sizeof(sa_host);
+	ssize_t rsize;
+	char buffer[8][1024];
    
    //sock opt and bind
-	if(-1 == setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &sa, flen)){
+   int sockopt = 1;
+	if(-1 == setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof(sockopt))){
 		perror("Sock options failed closing socket and exiting application...\n");
 		close(sock);
 		exit(EXIT_FAILURE);
 	}
 	
 
-	if(-1 == bind(sock, (struct sockaddr *)&sa, sizeof sa)){
+	if(-1 == bind(sock, (struct sockaddr *)&sa_host, sizeof sa_host)){
 		perror("binding failed closing socket and exiting application...\n");
 		close(sock);
 		exit(EXIT_FAILURE);

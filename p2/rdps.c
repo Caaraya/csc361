@@ -8,42 +8,9 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <time.h>
+#include <fcntl.h>
 
-//make separate file with separateString, sendMsg, getFileContent
-
-//use string tokenizer to split string by delimiter and return string array
-char ** separateString(char *buffer, const char *separator)
-{
-    char **result = NULL;
-    int count = 0;
-    char *pch;
-
-    pch = strtok (buffer,separator);
-
-    while (pch != NULL)
-    {
-        result = (char**)realloc(result, sizeof(char*)*(count+1));
-        if (result == NULL)
-            exit (-1); 
-        result[count] = (char*)malloc(strlen(pch)+1);
-        strcpy(result[count], pch);
-        count++;
-        pch = strtok (NULL, separator);
-    }
-    return result;
-    }
-
-void sendMsg(int sock,char *sentstr,struct sockaddr* saptr, socklen_t flen)
-{
-    //send request(do we need to handle large files?)
-    printf(sentstr);
-    if (sendto(sock,sentstr,strlen(sentstr),0, saptr, flen)==-1) 
-    {
-	    perror("sending failed closing socket and exiting application...\n");
-	    close(sock);
-	    exit(EXIT_FAILURE);
-    }
-}
+#include "helpers.h"
 
 void generateresponse(int sock, struct sockaddr* saptr, socklen_t flen, int *send_next, int *remaining_space, long unsigned int *position_of_file, char *filecontent)
 {
@@ -112,28 +79,6 @@ void generateresponse(int sock, struct sockaddr* saptr, socklen_t flen, int *sen
 
 }
 
-char* getFileContent(char* dir)
-{
-    char* filecontent;
-    long filesize;
-    
-    FILE * f = fopen(dir, "rb");
-    if(f == NULL)
-    {
-        return NULL;
-    }
-    else
-    {
-        fseek(f, 0, SEEK_END);
-        filesize = ftell(f);
-        rewind(f);
-        filecontent = malloc(filesize * (sizeof(char)));
-        fread(filecontent, sizeof(char), filesize, f);
-        fclose(f);
-        return filecontent;
-    }
-}
-
 int main(int argc, char **argv)
 {
    if(argc != 6){
@@ -142,50 +87,74 @@ int main(int argc, char **argv)
 	}
     ssize_t rsize;
     char buffer[1024];
-
-    int sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    struct sockaddr_in sa;
-
-    memset(&sa,0, sizeof sa);
-    sa.sin_family = AF_INET;
-    sa.sin_port = htons(atoi(argv[2]));
-    inet_pton(AF_INET, argv[1], &(sa.sin_addr));
-
-    socklen_t flen;
-   
-   char* filecontent = getFileContent(argv[5]);
+    
+    char* host_ip = argv[1];
+    int host_port = atoi(argv[2]);
+    char* receiver_ip = argv[3];
+    int receiver_port = atoi(argv[4]);
+    char* filename = argv[5];
+    
+    char* filecontent = getFileContent(filename);
    
    if(filecontent == NULL)
    {
         perror("Could not find provided file...\n");
-		close(sock);
 		exit(EXIT_FAILURE);
     }
     
-    flen = sizeof(sa);
+
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    
+    if(sock < 0)
+    {
+        perror("Could not open socket..\n");
+		exit(EXIT_FAILURE);
+    }
+    struct sockaddr_in sa_host;
+    struct sockaddr_in sa_peer;
+    
+    sa_host.sin_family = AF_INET;
+    sa_host.sin_port = host_port;
+    sa_host.sin_addr.s_addr = inet_addr(host_ip);
+    
+    sa_peer.sin_family = AF_INET;
+    sa_peer.sin_port = receiver_port;
+    sa_peer.sin_addr.s_addr = inet_addr(receiver_ip);
+    
+    socklen_t flen_host;
+    socklen_t flen_peer;
+    
+    flen_host = sizeof(sa_host);
+    flen_peer = sizeof(sa_peer);
+    
+    int sockopt = 1;
 
      //sock opt and bind
-	if(-1 == setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &sa, flen)){
+	if(-1 == setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&sockopt, sizeof(sockopt))){
 		perror("Sock options failed closing socket and exiting application...\n");
 		close(sock);
 		exit(EXIT_FAILURE);
 	}
 	
 
-	if(-1 == bind(sock, (struct sockaddr *)&sa, sizeof sa)){
+	if(-1 == bind(sock, (struct sockaddr *)&sa_host, sizeof sa_host)){
 		perror("binding failed closing socket and exiting application...\n");
 		close(sock);
 		exit(EXIT_FAILURE);
 	}
+	
+	//non block
+	fcntl(sock, F_SETFL, O_NONBLOCK);
+	
+	//int Ack = 0;
+	int send_next = 0;
+    int ack = 0;
+    int remaining_space = NULL; //no data
    
     struct timeval timeout;
     
     timeout.tv_sec = 2;
     timeout.tv_usec = 0;
-
-    int send_next = 0;
-    int ack = 0;
-    int remaining_space = NULL; //no data
 
     int select_result;
     fd_set read_fds;
@@ -193,7 +162,6 @@ int main(int argc, char **argv)
     FD_SET(sock, &read_fds);
     long unsigned int position_of_file = 0;
    
-    generateresponse(sock, (struct sockaddr*)&sa, flen,&send_next, &remaining_space, &position_of_file, filecontent);
     
     while(1)
     {
@@ -224,7 +192,6 @@ int main(int argc, char **argv)
 			    exit(EXIT_FAILURE);
 		    }
 		
-	        generateresponse(sock, (struct sockaddr*)&sa, flen, &send_next, &remaining_space, &position_of_file, filecontent);
 	    }
 	
 	    //reset select
