@@ -9,10 +9,10 @@ debug:
 	make all OPTIMIZE='-g'
 
 	
-rdps: rdps.c
+rdps: rdps.c helper.c helper.h
 	$(CC) $(CFLAGS) rdps rdps.c helpers.c helpers.h
 	
-rdpr: rdpr.c
+rdpr: rdpr.c helper.c helper.h
 	$(CC) $(CFLAGS) rdpr rdpr.c helpers.c helpers.h
 
 clean:
