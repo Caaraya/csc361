@@ -154,9 +154,13 @@ char* packet_to_string(packet* source){
     return data;
     
 }
-packet* packet_to_window(packet* packet, packet* head, char* file, int* window_size);//
+packet* packet_to_window(packet* packet, packet* head, char* file, int* window_size){
+    
+}
 void bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len,
-                       char* file, int* current_ackno, packet* last_ack, packet* timeout_queue);//
+                       char* file, int* current_ackno){
+
+}
 
 void ACK(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int win){ 
     packet ack_pack;
@@ -298,6 +302,3 @@ void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in*
         strtime, (long int) tv.tv_usec, event_type, inet_ntoa(source->sin_addr), source->sin_port,
         inet_ntoa(destination->sin_port), pkt_type_arr[pack->type], pack->seq, pack->ack, pack->payload, pack->win);
 }
-
-packet* remove_from_timers(packet* packet, packet* queue);//
-packet* add_to_timers(packet* packet, packet* queue);//

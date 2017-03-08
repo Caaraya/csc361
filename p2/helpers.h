@@ -28,8 +28,6 @@ typedef struct packet{
     int ack;
     char* data;
 
-    struct timeval timeout;
-
 } packet;
 
 typedef stats{
@@ -65,6 +63,4 @@ void DAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner
 void log_stats(stats* statistics, int is_sender);
 void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in* destination, packet* pack);
 
-packet* remove_from_timers(packet* packet, packet* queue);
-packet* add_to_timers(packet* packet, packet* queue);
 
