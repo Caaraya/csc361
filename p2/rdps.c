@@ -12,73 +12,6 @@
 
 #include "helpers.h"
 
-void generateresponse(int sock, struct sockaddr* saptr, socklen_t flen, int *send_next, int *remaining_space, long unsigned int *position_of_file, char *filecontent)
-{
-    char buffer[1024];
-    char strint[2];
-    strint[0] = *send_next+'0';
-    strint[1] = '\0';
-    strcpy(buffer,"_magic_ CSC361 _type_ ");
-    if(remaining_space)
-    {
-        strcat(buffer, "SYN ");
-        strcat(buffer, "_seqno_ ");
-        strcat(buffer, strint);
-        strcat(buffer, "\n");
-        printf(buffer);
-        sendMsg(sock, buffer, saptr, flen);
-    }
-    else if((*position_of_file) == sizeof(*filecontent))
-    {
-        strcat(buffer, "FIN ");
-        strcat(buffer, "_seqno_ ");
-        strcat(buffer, strint);
-        strcat(buffer, "\n");
-        sendMsg(sock, buffer, saptr, flen);
-    }
-    else
-    {
-        int index = 0;
-        while(index < 3)
-        {
-            strint[0] = *send_next+'0';
-            strcat(buffer, "DAT ");
-            strcat(buffer, "_seqno_ ");
-            strcat(buffer, strint);
-            strcat(buffer, "_length_ ");
-            if(*remaining_space > 1024 && (sizeof(filecontent) - (*position_of_file)) >= 900){
-                strcat(buffer, "900");
-                (*remaining_space) -= 900;
-                strcat(buffer, "\n");
-                char subbuff[901];
-                memcpy(subbuff, &filecontent[(int)position_of_file], 900);
-                subbuff[900] = '\0';
-                *send_next += 900;
-            }   
-            else if(*remaining_space > (sizeof(*filecontent) - (*position_of_file))){
-                long unsigned int size = (sizeof(filecontent) - (*position_of_file));
-                strint[0] = size+'0';
-                strcat(buffer, strint);
-                (*remaining_space) -= (int)size;
-                strcat(buffer, "\n");
-                char subbuff[size+1];
-                memcpy(subbuff, &filecontent[(int)position_of_file], (int)size);
-                *send_next += size;
-                subbuff[size] = '\0';
-            }
-            else
-            {
-                return;
-            }
-            sendMsg(sock, buffer, saptr, flen);
-            index++;
-            memset(buffer, 0, sizeof buffer);
-        }
-        
-    }
-
-}
-
 int main(int argc, char **argv)
 {
    if(argc != 6){
@@ -94,7 +27,7 @@ int main(int argc, char **argv)
     int receiver_port = atoi(argv[4]);
     char* filename = argv[5];
     
-    char* filecontent = getFileContent(filename);
+    FILE* filecontent = fopen(filename, "rb");
    
    if(filecontent == NULL)
    {
@@ -184,7 +117,7 @@ int main(int argc, char **argv)
 	    }
 	    if(FD_ISSET(sock, &read_fds))
 	    {
-	        rsize = recvfrom(sock, (void*)buffer, sizeof(buffer), 0, (struct sockaddr*)&sa, &flen);
+	        rsize = recvfrom(sock, (void*)buffer, sizeof(buffer), 0, (struct sockaddr*)&sa_peer, &flen_peer);
 		    if(rsize < 0)
 		    {
 			    perror("receive from failed closing socket and exiting application...\n");
@@ -202,4 +135,3 @@ int main(int argc, char **argv)
     // do stuff
     return 1;
 }
-

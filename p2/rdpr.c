@@ -15,7 +15,6 @@
 http://stackoverflow.com/questions/12730477/close-is-not-closing-socket-properly
 http://stackoverflow.com/questions/8872988/properly-close-a-tcp-socket?rq=1
 http://www.linuxhowtos.org/C_C++/socket.htm
-
 */
 int main(int argc, char **argv)
 {
@@ -30,7 +29,7 @@ int main(int argc, char **argv)
     int sender_port;
     char* filename = argv[3];
     
-    char* filecontent = getFileContent(argv[3]);
+    FILE* filecontent = fopen(filename, "rb");
     
     if(filecontent == NULL)
    {
@@ -49,14 +48,14 @@ int main(int argc, char **argv)
     
 	struct sockaddr_in sa_host;
 
-	memset(&sa,0, sizeof sa);
+	memset(&sa_host,0, sizeof sa_host);
 	sa_host.sin_family = AF_INET;
 	sa_host.sin_addr.s_addr = inet_addr(host_ip);
 	sa_host.sin_port = host_port;
 	
 	socklen_t flen = sizeof(sa_host);
 	ssize_t rsize;
-	char buffer[8][1024];
+	char buffer[MAX_WINDOW_IN_PACKETS][MAX_PACKET_SIZE];
    
    //sock opt and bind
    int sockopt = 1;
@@ -91,7 +90,7 @@ int main(int argc, char **argv)
 		}
 		if(FD_ISSET(sock, &read_fds))
 		{
-			rsize = recvfrom(sock, (void*)buffer[bufferAvail], sizeof(buffer[bufferAvail]), 0, (struct sockaddr*)&sa, &flen);
+			rsize = recvfrom(sock, (void*)buffer[bufferAvail], sizeof(buffer[bufferAvail]), 0, (struct sockaddr*)&sa_host, &flen);
 			printf(buffer[bufferAvail]);
 		    
 		}
