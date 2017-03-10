@@ -146,6 +146,7 @@ int main(int argc, char **argv)
     while(1)
     {
         select_result = select(sock + 1,&read_fds, 0, 0, &timeout);
+        logType = NULL;
         if(select_result == -1)
 	    {
 		    perror("select call failed closing socket and exiting application...\n");\
@@ -177,6 +178,9 @@ int main(int argc, char **argv)
             else{
                 pack = parse_packet(buffer);
                 logType = 'r';
+            }
+            if(logType){
+                log_packet(logType, &sa_host, &sa_peer, pack);
             }
 		
 	    }
