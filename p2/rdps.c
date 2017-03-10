@@ -19,7 +19,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
     ssize_t rsize;
-    char buffer[1024];
+    char buffer = calloc(MAX_PACKET_SIZE+1, sizeof(char));
     
     char* host_ip = argv[1];
     int host_port = atoi(argv[2]);
@@ -77,27 +77,66 @@ int main(int argc, char **argv)
 	}
 	
     stats statistics;
-	//non block
-	fcntl(sock, F_SETFL, O_NONBLOCK);
+
+    enum system_states sys_state = SYNACK;
     
     gettimeofday(&statistics.start_time, NULL);
-    
-	//int Ack = 0;
-	int send_next = 0;
-    int ack = 0;
-    int remaining_space = NULL; //no data
-   
+
+	int init_seq = 0;
+    int sys_seq = 0;
+    packet* pack = NULL;
+    packet** sent_packets_not_acked;
+
     struct timeval timeout;
     
     timeout.tv_sec = 2;
     timeout.tv_usec = 0;
+
 
     int select_result;
     fd_set read_fds;
     FD_ZERO(&read_fds);
     FD_SET(sock, &read_fds);
     long unsigned int position_of_file = 0;
-   
+    //for random seq number
+    srand(time(NULL)); 
+
+    statistics.syn++;
+    initial_seqno = send_SYN(sock, &sa_peer, flen_peer, &sa_host);
+    while(sys_state == SYNACK){
+        select_result = select(sock + 1,&read_fds, 0, 0, &timeout);
+        if(select_result == -1)
+	    {
+		    perror("select call failed closing socket and exiting application...\n");\
+		    close(sock);
+		    exit(EXIT_FAILURE);
+	    }
+	    if(select_result == 0)
+	    {
+            statistics.syn++;
+                initial_seqno = send_SYN(sock, &sa_peer, flen_peer, &sa_host);
+            //reset timer
+            timeout.tv_sec = 2;
+            timeout.tv_usec = 0;
+        }
+        if(FD_ISSET(sock, &read_fds))
+	    {
+            int bytes = recvfrom(sock, buffer, MAX_PACKET_SIZE+1, 0, (struct sockaddr*) &sa_peer, flen_peer);
+            if(bytes <= 0){
+                perror("Issue receiving from receiver\n");
+		        close(sock);
+		        exit(EXIT_FAILURE);
+            }
+            else
+            {
+                sys_state = DATA;
+                packet = parse_packet(buffer);
+                statistics.ack++;
+                sent_packets_not_acked = 
+            }
+        }
+        
+    }
     
     while(1)
     {

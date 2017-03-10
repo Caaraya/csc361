@@ -229,7 +229,7 @@ packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr
         }
         else{//fin
             FIN_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, pack)
-            return NULL;
+            return window_arr;
         }
         send_packets--;
         indx++;
@@ -255,7 +255,7 @@ void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* pa
     free(ack_pack.data);
 } 
 void SYN_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len){
-    int seqno = 0;
+    int seqno = rand();
 
     packet syn_pack;
     syn_pack.type = SYN;
