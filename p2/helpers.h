@@ -15,6 +15,8 @@
 #define TIMEOUT 600  
 #define MAX_PAYLOAD_SIZE 900 
 
+enum system_states {HANDSHAKE,DATA,RESET,EXIT};
+
 enum packet_type{DAT,ACK,SYN,FIN,RST};
 // one timer if times out stop, if ack received reset, if three of the same ack sent, packet lost
 //packet with next packet, type, seq, ack, payload, window, data, timeout

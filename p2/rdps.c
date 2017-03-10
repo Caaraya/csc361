@@ -76,9 +76,12 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	
+    stats statistics;
 	//non block
 	fcntl(sock, F_SETFL, O_NONBLOCK);
-	
+    
+    gettimeofday(&statistics.start_time, NULL);
+    
 	//int Ack = 0;
 	int send_next = 0;
     int ack = 0;
