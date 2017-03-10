@@ -1,0 +1,31 @@
+1. How do you design and implement your RDP header and header fields? Do you use any additional header fields?
+
+I do not use any extra header fields other than specified in the assignment, I use a string to store the header, it's space separated
+and stops processing the header after it finds a new line character
+
+2. How do you design and implement the connection management using SYN, FIN and RST packets? How to choose the initial sequence number?
+
+The initial sequence number is a random integer using rand(), SYN is sent first to the receiver and the sender waits for an ack,
+the sender continues to try and send SYN messages until the receiver responds. FIN messages are sent from the receiver in the
+bulksendDat function after the file pointer no longer reads any data, then the receiver sends one last ack to be caught by the 
+sender and closes, the sender closes after receiving the last ack or after a timeout occurs.
+
+3. How do you design and implement the flow control using window size? How to choose the initial window size and adjust the size? 
+How to read and write the file and how to manage the buffer at the sender and receiver side, respectively?
+
+the window size is fixed 1024 bytes and the sender only uses up to that amount of space to send, the flow control is implemented 
+through arrays of packets, with the max window taking 10 buffers at a time, the file is read using a file pointer to the directory 
+same as with writing the receiver has a fixed array of packets that it waits until it's full to completely process, it acknowledges
+the last packet that is in the correct sequence in the array, with the right sequence number. If the receiver times out and receives
+three of the same acknowlegment in a row it tries to find the next packet in its own array. the array on the sender side is dynamic and 
+stores the packets that haven't yet been acknowledged by the receiver. When a sequence is acknowleged it removes that packet from the array
+and adds when a DAT is sent.(either from bulk or otherwise)
+
+4. How do you design and implement the error detection, notification and recovery? How to use timer? How many timers do you use? 
+How to respond to the events at the sender and receiver side, respectively? How to ensure reliable data transfer?
+
+I use one timer as in TCP fast recovery, the timer is used with select to detect when a packet was received on the sender side. see previous answer.
+
+5. Any additional design and implementation considerations you want to get feedback from your lab instructor?
+
+I have no speciific concerns at the moment, I am open for feedback though.

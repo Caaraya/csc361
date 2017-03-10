@@ -82,7 +82,6 @@ int main(int argc, char **argv)
     
     gettimeofday(&statistics.start_time, NULL);
 
-	int init_seq = 0;
     int sys_seq = 0;
     packet* pack = NULL;
     packet** sent_packets_not_acked;
@@ -102,7 +101,7 @@ int main(int argc, char **argv)
     srand(time(NULL)); 
 
     statistics.syn++;
-    initial_seqno = send_SYN(sock, &sa_peer, flen_peer, &sa_host);
+    sys_seq = send_SYN(sock, &sa_peer, flen_peer, &sa_host);
     while(sys_state == SYNACK){
         select_result = select(sock + 1,&read_fds, 0, 0, &timeout);
         if(select_result == -1)
@@ -114,7 +113,7 @@ int main(int argc, char **argv)
 	    if(select_result == 0)
 	    {
             statistics.syn++;
-                initial_seqno = send_SYN(sock, &sa_peer, flen_peer, &sa_host);
+            sys_seq = send_SYN(sock, &sa_peer, flen_peer, &sa_host);
             //reset timer
             timeout.tv_sec = 2;
             timeout.tv_usec = 0;
@@ -130,13 +129,19 @@ int main(int argc, char **argv)
             else
             {
                 sys_state = DATA;
-                packet = parse_packet(buffer);
+                pack = parse_packet(buffer);
                 statistics.ack++;
-                sent_packets_not_acked = 
+                sent_packets_not_acked = bulksendDAT(sock, sa_host, sa_peer, flen_peer, filecontent, sys_seq, statistics, pack);
+                free(pack);
+                timeout.tv_sec = 2;
+                timeout.tv_usec = 0;
             }
         }
         
     }
+    int ack_count;
+    packet* last_packet;
+    char logType;
     
     while(1)
     {
@@ -150,6 +155,8 @@ int main(int argc, char **argv)
 	    if(select_result == 0)
 	    {
 		    //timeout
+            // not yet implemented
+            //logType = 'S'
 		    
 		    //retramsmit not yet acknowleged segment with smallest sequence number
 		    //start timer
@@ -159,6 +166,7 @@ int main(int argc, char **argv)
 	    }
 	    if(FD_ISSET(sock, &read_fds))
 	    {
+            memset(buffer, '\0', MAX_PACKET_LENGTH+1);
 	        rsize = recvfrom(sock, (void*)buffer, sizeof(buffer), 0, (struct sockaddr*)&sa_peer, &flen_peer);
 		    if(rsize < 0)
 		    {
@@ -166,6 +174,10 @@ int main(int argc, char **argv)
 			    close(sock);
 			    exit(EXIT_FAILURE);
 		    }
+            else{
+                pack = parse_packet(buffer);
+                logType = 'r';
+            }
 		
 	    }
 	
