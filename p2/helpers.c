@@ -138,7 +138,7 @@ char* packet_to_string(packet *source){
     
 }
 //for server
-void process_packets(packet* pack, packet** window_arr, FILE* file, int* window_size){
+void process_packets(packet* pack, packet** window_arr, FILE* file, int* window_size, int* acked_to){
     packet* current_pack = window_arr[0];
     
     int last_index = NULL;
@@ -192,24 +192,29 @@ void process_packets(packet* pack, packet** window_arr, FILE* file, int* window_
             while(finalPass < MAX_WINDOW_IN_PACKETS)
             {
                 fwrite(window_arr[finalPass]->data, sizeof(char), window_arr[finalpass]->payload, file);
+                *acked_to = window_arr[finalPass]->seq;
+                current_pack = window_arr[finalPass];
                 window_arr[finalPass] == NULL;
-
                 finalPass--;
             }
             *window_size = MAX_WINDOW_IN_PACKETS;
         }
 
     }
+    packet = current_pack;
 }
 //for client
-void bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file,  int* current_seqno, enum stats stat, packet* last_received){
+packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file,  int* current_seqno, enum stats stat, packet* last_received){
     //remove non acknowledged packets still in window
     int send_packets = (*current_seqno - last_received->ack)/MAX_PAYLOAD_SIZE;
 
     //send up to max amount of packets
     send_packets = MAX_WINDOW_IN_PACKETS - send_packets;
-    
 
+    //save packets in array
+    packet* window_arr[send_packets + 1] = {NULL};
+    
+    indx = 0;
     while(send_packets > 0)
     {
         packet* pack = calloc(1, sizeof(struct packet));
@@ -218,15 +223,18 @@ void bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in*
         int packets_read;//payload
 
         if((packets_read = fread(pack->data, sizeof(char), sizeof(MAX_PACKET_SIZE), file)) > 0){
+            window_arr[indx] = pack
             DAT_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, packets_read, pack);
             *current_seqno += packets_read;
         }
         else{//fin
             FIN_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, pack)
-            return;
+            return NULL;
         }
         send_packets--;
+        indx++;
     }
+    return window_arr;
 }
 
 void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int win){ 
@@ -287,15 +295,29 @@ void DAT_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* pa
     dat_pack->ack = 0;
     dat_pack->payload = 0;
     dat_pack->win = 0;
-    dat_pack->data = calloc(1, sizeof(char));
-    strcpy(dat_pack->data, "");
     char* dat_str = packet_to_string(dat_pack);
 
     sendto(sock, dat_str, MAX_PACKET_SIZE, 0, (struct sockaddr*) partner_sa, partner_sa_len);
     log_packet('s', self_address, partner_sa, dat_pack);
 
     free(dat_str);
-    free(dat_pack->data);
+}
+void RST_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int window_size){
+    packet rst_pack;
+    rst_pack.type = RST;
+    rst_pack.seq = 0;
+    rst_pack.ack = seq;
+    rst_pack.payload = 0;
+    rst_pack.win = window_size;
+    rst_pack.data = calloc(1, sizeof(char));
+    strcpy(rst_pack.data, "");
+    char* rst_str = packet_to_string(&rst_pack);
+
+    sendto(sock, rst_str, MAX_PACKET_SIZE, 0, (struct sockaddr*) partner_sa, partner_sa_len);
+    log_packet('s', self_address, partner_sa, &rst_pack);
+
+    free(rst_str);
+    free(rst_pack.data);
 }
 
 void log_stats(stats* stat, int is_sender){

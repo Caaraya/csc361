@@ -29,7 +29,7 @@ int main(int argc, char **argv)
     int sender_port;
     char* filename = argv[3];
     
-    FILE* filecontent = fopen(filename, "rb");
+    FILE* filecontent = fopen(filename, "w");
     
     if(filecontent == NULL)
    {
@@ -47,6 +47,8 @@ int main(int argc, char **argv)
     }
     
 	struct sockaddr_in sa_host;
+	struct sockaddr_in sender_address;
+	socklen_t sender_flen;
 
 	memset(&sa_host,0, sizeof sa_host);
 	sa_host.sin_family = AF_INET;
@@ -54,8 +56,13 @@ int main(int argc, char **argv)
 	sa_host.sin_port = host_port;
 	
 	socklen_t flen = sizeof(sa_host);
+	sender_flen = sizeof(struct sa_host);
 	ssize_t rsize;
-	char buffer[MAX_WINDOW_IN_PACKETS][MAX_PACKET_SIZE];
+	//needed for processing
+	char* buffer = calloc(MAX_PACKET_SIZE+1, sizeof(char));
+	int acked_to = 0;
+	char* packet_str;
+	unsigned long first_addr;
    
    //sock opt and bind
    int sockopt = 1;
@@ -71,14 +78,21 @@ int main(int argc, char **argv)
 		close(sock);
 		exit(EXIT_FAILURE);
 	}
-   
-   
+
+	//initialize stats
+	stats statistics;
+
+	gettimeofday(&statistics.start, NULL);
+	//window
+	packet* window[MAX_WINDOW_IN_PACKETS] = {NULL};
+
+	int window_size = MAX_WINDOW_IN_PACKETS;
+	
    int select_result;
    fd_set read_fds;
    FD_ZERO(&read_fds);
    FD_SET(sock, &read_fds);
    
-   int bufferAvail = 0;
     while(1)
     {
         select_result = select(sock + 1,&read_fds, 0, 0, 0);
@@ -90,16 +104,93 @@ int main(int argc, char **argv)
 		}
 		if(FD_ISSET(sock, &read_fds))
 		{
-			rsize = recvfrom(sock, (void*)buffer[bufferAvail], sizeof(buffer[bufferAvail]), 0, (struct sockaddr*)&sa_host, &flen);
-			printf(buffer[bufferAvail]);
+			memset(buffer, '\0', MAX_PACKET_SIZE);
+			packet* packet;
+			rsize = recvfrom(sock, (void*)buffer, sizeof(buffer), 0, (struct sockaddr*)&sender_address, &sender_flen);
+			if(bytes == -1){printf("recv error\n");}
+
+			printf(buffer);
+
+			if(first_addr == 0){
+				first_addr = sender_address.sin_addr.s_addr;
+			} else if(first_addr != sender_address.sin_addr.s_addr){
+				//reset
+				RST_send(sock, &sa_host, &sender_address, sender_flen, packet->seqno, 0);
+				exit(-1)
+			}
 		    
+			packet = packet_parse(buffer);
+
+			if(packet == NULL){
+				fprintf("packet corrupt");
+				continue;
+			}
+			if(packet->seq < acked_to){
+				statistics.data_total += packet-> payload;
+				statistics.packet_total++;
+				ACK_send(int sock, &sa_host, &sender_address, sender_flen, packet->seq, 0);
+				continue;
+			}
+
+			char log_type = 'r';
+			// before smaller than smallest sequence
+			if(window[0] != NULL && packet->seq < window[0]->seq){
+				log_type = 'R';
+			}
+
+			log_packet(log_type, &sa_host, &sender_address, packet);
+			//change variables based on packet type
+			switch(packet->type){
+				case SYN:
+					//got syn request
+					statistics.syn++;
+					statistics.ack++;
+					acked_to = packet->seq;
+					ACK_send(int sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
+					break;
+				case DAT:
+					statistics.packet_total++;
+					if(log_type == 'r') { 
+						statistics.packet_unique++;
+						statistics.data_unique++;
+					}
+					statistics.total_data += packet->payload;
+					//write to file change acked and packet to last received packet
+					process_packets(packet, window, filecontent, &window_size, &acked_to);
+
+					statistics.ack++;
+					ACK_send(int sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
+					break;
+				case RST:
+					statistics.rst++;
+					ACK_send(int sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
+					close(sock);
+					exit(-1);
+					break;
+				case FIN:
+					statistics.fin++;
+					//send ack and fin
+					ACK_send(int sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
+					packet_string = render_packet(packet);
+
+					sendto(sock, packet_string, MAX_PACKET_SIZE, 0, (struct sockaddr*) &sender_address, sender_flen);
+					int indx = 0
+					while(indx < MAX_WINDOW_IN_PACKETS){
+						if (window[indx]!= NULL){fprintf(filecontent, "%s", window[indx->data]);}
+
+						indx++
+					}
+					logstats(&statistics, 0);
+					close(sock);
+					exit(0);
+					break;
+			}
 		}
-		
 		//reset select
 		FD_ZERO( &read_fds );
 		FD_SET( sock, &read_fds);
     }
  
    //do stuff
-   return 1;
+   return 0;
 }

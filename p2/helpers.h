@@ -49,13 +49,14 @@ int sendMsg(int sock,char *sentstr,struct sockaddr* saptr, socklen_t flen);
 struct packet* packet_parse(char* buffer);
 
 char* packet_to_string(packet*);
-void process_packets(struct packet* pack, struct packet** window_arr, FILE* file, int* window_size);
-void bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file, int* current_seqno, enum stats stat, packet* last_received);
+void process_packets(struct packet* pack, struct packet** window_arr, FILE* file, int* window_size, int* acked_to);
+packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file, int* current_seqno, enum stats stat, packet* last_received);
 
 void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int win);
 void SYN_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len);
 void FIN_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, packet* pack);
 void DAT_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int increment, packet* pack);
+void RST_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int window_size);
 
 void log_stats(stats* statistics, int is_sender);
 void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in* destination, struct packet* pack);
