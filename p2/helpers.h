@@ -16,10 +16,9 @@
 #define MAX_PAYLOAD_SIZE 900 
 
 enum packet_type{DAT,ACK,SYN,FIN,RST};
-
+// one timer if times out stop, if ack received reset, if three of the same ack sent, packet lost
 //packet with next packet, type, seq, ack, payload, window, data, timeout
 typedef struct packet {
-    struct packet* link;
 
     enum packet_type type;
     int payload;
@@ -50,7 +49,7 @@ int sendMsg(int sock,char *sentstr,struct sockaddr* saptr, socklen_t flen);
 struct packet* packet_parse(char* buffer);
 
 char* packet_to_string(packet*);
-packet* process_packets(struct packet* pack, struct packet* head, FILE* file, int* window_size);
+void process_packets(struct packet* pack, struct packet** window_arr, FILE* file, int* window_size);
 void bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file, int* current_seqno, enum stats stat, packet* last_received);
 
 void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int win);
