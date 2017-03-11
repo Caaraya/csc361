@@ -1,7 +1,7 @@
 CC=gcc
 CXX=g++
 OPTIMIZE=-Os
-CFLAGS=-o
+CFLAGS=-Wall -o
 
 all: rdps rdpr
 
