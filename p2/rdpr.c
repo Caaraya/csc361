@@ -92,6 +92,7 @@ int main(int argc, char **argv)
    fd_set read_fds;
    FD_ZERO(&read_fds);
    FD_SET(sock, &read_fds);
+   int acked_to_same = 0;
    
     while(1)
     {
@@ -145,8 +146,10 @@ int main(int argc, char **argv)
 					//got syn request
 					statistics.syn++;
 					statistics.ack++;
+					acked_to_same = (acked_to == packet->seq);
 					acked_to = packet->seq;
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
+					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, packet);
 					break;
 				case DAT:
 					statistics.packet_total++;
@@ -156,14 +159,18 @@ int main(int argc, char **argv)
 					}
 					statistics.data_total += packet->payload;
 					//write to file change acked and packet to last received packet
+					int last_acked_to = acked_to;
 					process_packets(packet, window, filecontent, &window_size, &acked_to);
+					acked_to_same = (acked_to == last_acked_to);
 
 					statistics.ack++;
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
+					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, packet);
 					break;
 				case RST:
 					statistics.rst++;
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
+					log_packet('s', &sa_host, &sender_address, packet);
 					close(sock);
 					exit(-1);
 					break;
@@ -173,6 +180,7 @@ int main(int argc, char **argv)
 					packet_str = packet_to_string(packet);
 
 					sendto(sock, packet_str, MAX_PACKET_SIZE, 0, (struct sockaddr*) &sender_address, sender_flen);
+					log_packet('s', &sa_host, &sender_address, packet);
 					int indx = 0;
 					while(indx < MAX_WINDOW_IN_PACKETS){
 						if (window[indx]!= NULL){fprintf(filecontent, "%s", window[indx]->data);}

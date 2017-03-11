@@ -191,10 +191,14 @@ int main(int argc, char **argv)
                 if(last_ack == pack->ack){
                     ack_count += 1;
                     logType = 'R';
+                    if (ack_count == 3){
+                        log_packet(logType, &sa_host, &sa_peer, pack);
+                        logType = 'S';
+                    }
                 }
                 else{
                     ack_count = 0;
-                    logType = 's';
+                    logType = 'r';
                 }
                 last_ack = pack->ack;
             }
