@@ -19,7 +19,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
     ssize_t rsize;
-    char buffer = calloc(MAX_PACKET_SIZE+1, sizeof(char));
+    char* buffer = calloc(MAX_PACKET_SIZE+1, sizeof(char));
     
     char* host_ip = argv[1];
     int host_port = atoi(argv[2]);
@@ -80,11 +80,12 @@ int main(int argc, char **argv)
 
     enum system_states sys_state = SYNACK;
     
-    gettimeofday(&statistics.start_time, NULL);
+    gettimeofday(&statistics.start, NULL);
 
     int sys_seq = 0;
     packet* pack = NULL;
-    packet** sent_packets_not_acked;
+    int last_indx_sent_not_acked = -1;
+    packet* sent_packets_not_acked;
 
     struct timeval timeout;
     
@@ -101,7 +102,7 @@ int main(int argc, char **argv)
     srand(time(NULL)); 
 
     statistics.syn++;
-    sys_seq = send_SYN(sock, &sa_peer, flen_peer, &sa_host);
+    sys_seq = SYN_send(sock, &sa_host, &sa_peer, flen_peer);
     while(sys_state == SYNACK){
         select_result = select(sock + 1,&read_fds, 0, 0, &timeout);
         if(select_result == -1)
@@ -113,14 +114,14 @@ int main(int argc, char **argv)
 	    if(select_result == 0)
 	    {
             statistics.syn++;
-            sys_seq = send_SYN(sock, &sa_peer, flen_peer, &sa_host);
+            sys_seq = SYN_send(sock, &sa_host, &sa_peer, flen_peer);
             //reset timer
             timeout.tv_sec = 2;
             timeout.tv_usec = 0;
         }
         if(FD_ISSET(sock, &read_fds))
 	    {
-            int bytes = recvfrom(sock, buffer, MAX_PACKET_SIZE+1, 0, (struct sockaddr*) &sa_peer, flen_peer);
+            int bytes = recvfrom(sock, buffer, MAX_PACKET_SIZE+1, 0, (struct sockaddr*) &sa_peer, &flen_peer);
             if(bytes <= 0){
                 perror("Issue receiving from receiver\n");
 		        close(sock);
@@ -129,9 +130,9 @@ int main(int argc, char **argv)
             else
             {
                 sys_state = DATA;
-                pack = parse_packet(buffer);
+                pack = packet_parse(buffer);
                 statistics.ack++;
-                sent_packets_not_acked = bulksendDAT(sock, sa_host, sa_peer, flen_peer, filecontent, sys_seq, statistics, pack);
+                sent_packets_not_acked = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, pack, &last_indx_sent_not_acked);
                 free(pack);
                 timeout.tv_sec = 2;
                 timeout.tv_usec = 0;
@@ -146,7 +147,7 @@ int main(int argc, char **argv)
     while(1)
     {
         select_result = select(sock + 1,&read_fds, 0, 0, &timeout);
-        logType = NULL;
+        logType = 0;;
         if(select_result == -1)
 	    {
 		    perror("select call failed closing socket and exiting application...\n");\
@@ -167,7 +168,7 @@ int main(int argc, char **argv)
 	    }
 	    if(FD_ISSET(sock, &read_fds))
 	    {
-            memset(buffer, '\0', MAX_PACKET_LENGTH+1);
+            memset(buffer, '\0', MAX_PACKET_SIZE+1);
 	        rsize = recvfrom(sock, (void*)buffer, sizeof(buffer), 0, (struct sockaddr*)&sa_peer, &flen_peer);
 		    if(rsize < 0)
 		    {
@@ -176,7 +177,7 @@ int main(int argc, char **argv)
 			    exit(EXIT_FAILURE);
 		    }
             else{
-                pack = parse_packet(buffer);
+                pack = packet_parse(buffer);
                 logType = 'r';
             }
             if(logType){

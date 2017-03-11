@@ -24,7 +24,7 @@ int sendMsg(int sock,char *sentstr,struct sockaddr* saptr, socklen_t flen)
 }
 
 //use string tokenizer to split string by delimiter and return string array
-char ** separateString(char *buffer, const char *separator)
+char ** separateString(char *buffer, const char *separator, int* len)
 {
     char **result = NULL;
     int count = 0;
@@ -42,15 +42,17 @@ char ** separateString(char *buffer, const char *separator)
         count++;
         pch = strtok (NULL, separator);
     }
+    *len = count;
     return result;
 }
 
 packet* packet_parse(char* buffer){
     packet* res = calloc(1, sizeof(struct packet));
     char **result = NULL;
-    result = separateString(buffer, " ");
+    int len;
+    result = separateString(buffer, " ", &len);
     int i;
-    for( i=0; result[i-1] != "\n"; i++){
+    for( i=0; strcmp(result[i-1], "\n") != 0; i++) { //result[i-1] != "\n"; i++){
         if(strcmp(result[i], "_magic_") == 0){
             if(!strcmp(result[i+1], "CSC361")){
                 //good
@@ -98,10 +100,19 @@ packet* packet_parse(char* buffer){
         }
         else if(!strcmp(result[i], "\n")){
             i+=1;
-            res->data= result[i];
+            char data[MAX_PAYLOAD_SIZE];
+            strcpy(data, "");
+            while(i < len){
+                strcat(data, result[i]);
+                if(!strcmp(result[i], "\0")){
+                    strcat(data, " ");
+                }
+                i++;
+            }
+            break;
+            res->data= data;
         }
     }
-    res->link = NULL;
     return res;
 }
 
@@ -141,7 +152,7 @@ char* packet_to_string(packet *source){
 void process_packets(packet* pack, packet** window_arr, FILE* file, int* window_size, int* acked_to){
     packet* current_pack = window_arr[0];
     
-    int last_index = NULL;
+    int last_index = -1;
     if(current_pack == NULL){
         window_arr[0] = pack;
         current_pack = window_arr[0];
@@ -151,20 +162,20 @@ void process_packets(packet* pack, packet** window_arr, FILE* file, int* window_
         //get expected index of new packet
         int indx_pack = ((pack->seq - current_pack->seq)/MAX_PACKET_SIZE + ((pack->seq - current_pack->seq)%MAX_PACKET_SIZE != 0));//should be unique
         int indx = 0;
-        int potentialLoss = FALSE;
+        int potentialLoss = 0;
         if(window_arr[indx_pack] == NULL){
             window_arr[indx_pack] = pack; 
         }
         else{
             //duplicate? hopefully never happens ignore for now
         }
-        While(indx < MAX_WINDOW_IN_PACKETS)
+        while(indx < MAX_WINDOW_IN_PACKETS)
         {
             int next_seq = current_pack->seq + current_pack->payload;
             if(window_arr[indx] != NULL){
                 if(window_arr[indx]->seq == next_seq){
                     //we found a valid packet
-                    current_pack = *window_arr[indx];
+                    current_pack = window_arr[indx];
                     last_index = indx;
                 }
             }
@@ -173,7 +184,7 @@ void process_packets(packet* pack, packet** window_arr, FILE* file, int* window_
                 while(indx < MAX_WINDOW_IN_PACKETS)
                 {
                     if(window_arr[indx] != NULL){
-                        potentialLoss = TRUE;
+                        potentialLoss = 1;
                     }
                     else{
                         window++;
@@ -186,25 +197,25 @@ void process_packets(packet* pack, packet** window_arr, FILE* file, int* window_
             indx++;
         }
 
-        if(!potentialLoss &&(current_pack->payload < MAX_PAYLOAD_LENGTH || last_index = MAX_WINDOW_IN_PACKETS-1)){//if last dat or filed list or 
+        if(!potentialLoss &&(current_pack->payload < MAX_PAYLOAD_SIZE || last_index == MAX_WINDOW_IN_PACKETS-1)){//if last dat or filed list or 
             //start processing
             int finalPass = 0;
             while(finalPass < MAX_WINDOW_IN_PACKETS)
             {
-                fwrite(window_arr[finalPass]->data, sizeof(char), window_arr[finalpass]->payload, file);
+                fwrite(window_arr[finalPass]->data, sizeof(char), window_arr[finalPass]->payload, file);
                 *acked_to = window_arr[finalPass]->seq;
                 current_pack = window_arr[finalPass];
-                window_arr[finalPass] == NULL;
+                window_arr[finalPass] = NULL;
                 finalPass--;
             }
             *window_size = MAX_WINDOW_IN_PACKETS;
         }
 
     }
-    packet = current_pack;
+    pack = current_pack;
 }
 //for client
-packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file,  int* current_seqno, enum stats stat, packet* last_received){
+packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file,  int* current_seqno, enum system_states *stat, packet* last_received, int* last_indx){
     //remove non acknowledged packets still in window
     int send_packets = (*current_seqno - last_received->ack)/MAX_PAYLOAD_SIZE;
 
@@ -212,9 +223,10 @@ packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr
     send_packets = MAX_WINDOW_IN_PACKETS - send_packets;
 
     //save packets in array
-    packet* window_arr[send_packets + 1] = {NULL};
+    //packet* window_arr[send_packets + 1] = calloc((send_packets+1), sizeof(struct packet));
+    packet** window_arr = calloc((send_packets+1), sizeof(struct packet*));
     
-    indx = 0;
+    int indx = 0;
     while(send_packets > 0)
     {
         packet* pack = calloc(1, sizeof(struct packet));
@@ -223,16 +235,23 @@ packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr
         int packets_read;//payload
 
         if((packets_read = fread(pack->data, sizeof(char), sizeof(MAX_PACKET_SIZE), file)) > 0){
-            window_arr[indx] = pack
+            window_arr[indx] = pack;
             DAT_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, packets_read, pack);
             *current_seqno += packets_read;
         }
         else{//fin
-            FIN_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, pack)
+            FIN_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, pack);
+            *stat = EXIT;
             return window_arr;
         }
         send_packets--;
         indx++;
+    }
+    if(*last_indx == -1){
+        *last_indx = indx;
+    }
+    else{
+        *last_indx += indx + 1;
     }
     return window_arr;
 }
@@ -254,7 +273,7 @@ void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* pa
     free(ack_str);
     free(ack_pack.data);
 } 
-void SYN_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len){
+int SYN_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len){
     int seqno = rand();
 
     packet syn_pack;
@@ -272,6 +291,7 @@ void SYN_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* pa
 
     free(syn_str);
     free(syn_pack.data);
+    return seqno;
 }
 void FIN_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, packet *fin_pack){
     fin_pack->type = FIN;
