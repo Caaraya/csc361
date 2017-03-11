@@ -85,7 +85,7 @@ int main(int argc, char **argv)
     int sys_seq = 0;
     packet* pack = NULL;
     int last_indx_sent_not_acked = -1;
-    packet* sent_packets_not_acked;
+    packet** sent_packets_not_acked = {NULL};
 
     struct timeval timeout;
     
@@ -133,15 +133,9 @@ int main(int argc, char **argv)
                 pack = packet_parse(buffer);
                 statistics.ack++;
                 //bulk send changes the value of the array size save it before
-                /*int indx_before;
-                if(last_indx_sent_not_acked ==-1){
-                    indx_before = 0;
-                }
-                else{
-                    indx_before = last_indx_sent_not_acked;
-                }*/
                 int indx_before = (last_indx_sent_not_acked == -1 ? 0 : last_indx_sent_not_acked);
                 int i=0;
+
                 packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, pack, &last_indx_sent_not_acked);
                 sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked+1) * sizeof(packet*));
 
