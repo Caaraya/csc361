@@ -169,8 +169,7 @@ int main(int argc, char **argv)
 					break;
 				case FIN:
 					statistics.fin++;
-					//send ack and fin
-					ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
+					//send fin
 					packet_str = packet_to_string(packet);
 
 					sendto(sock, packet_str, MAX_PACKET_SIZE, 0, (struct sockaddr*) &sender_address, sender_flen);

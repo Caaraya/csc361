@@ -152,7 +152,8 @@ int main(int argc, char **argv)
         }
         
     }
-    int ack_count;
+    int ack_count = 0;
+    int last_ack = NULL;
     packet* last_packet;
     char logType;
     
@@ -170,13 +171,10 @@ int main(int argc, char **argv)
 	    {
 		    //timeout
             // not yet implemented
-            //logType = 'S'
+            logType = 'S';
 		    
-		    //retramsmit not yet acknowleged segment with smallest sequence number
+		    //retramsmit not yet acknowleged segment with last_ack ackno
 		    //start timer
-		     printf("timeout closing application\n");
-			 close(sock);
-			 return 1;
 	    }
 	    if(FD_ISSET(sock, &read_fds))
 	    {
@@ -190,7 +188,15 @@ int main(int argc, char **argv)
 		    }
             else{
                 pack = packet_parse(buffer);
-                logType = 'r';
+                if(last_ack == pack->ack){
+                    ack_count += 1;
+                    logType = 'R';
+                }
+                else{
+                    ack_count = 0;
+                    logType = 's';
+                }
+                last_ack = pack->ack;
             }
             if(logType){
                 log_packet(logType, &sa_host, &sa_peer, pack);
