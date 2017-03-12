@@ -57,7 +57,7 @@ int main(int argc, char **argv)
 	//sender_flen = sizeof(sa_host);
 	ssize_t rsize;
 	//needed for processing
-	char* buffer = calloc(MAX_PACKET_SIZE+1, sizeof(char));
+	char* buffer = (char*)calloc(MAX_PACKET_SIZE+1, sizeof(char));
 	int acked_to = 0;
 	char* packet_str;
 	unsigned long first_addr = 0;
@@ -149,7 +149,7 @@ int main(int argc, char **argv)
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
 					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, packet);
 					break;
-				case DAT:
+				case DAT:{
 					statistics.packet_total++;
 					if(log_type == 'r') { 
 						statistics.packet_unique++;
@@ -166,6 +166,7 @@ int main(int argc, char **argv)
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
 					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, packet);
 					break;
+				}
 				case RST:
 					statistics.rst++;
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
@@ -173,7 +174,7 @@ int main(int argc, char **argv)
 					close(sock);
 					exit(-1);
 					break;
-				case FIN:
+				case FIN:{
 					statistics.fin++;
 					//send fin
 					packet_str = packet_to_string(packet);
@@ -190,8 +191,10 @@ int main(int argc, char **argv)
 					close(sock);
 					exit(0);
 					break;
+				}
 				default:
 					//terrible things
+					printf("got an ACK, receiver should never get ACK's\n");
 					break;
 			}
 		}

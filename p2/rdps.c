@@ -19,7 +19,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
     ssize_t rsize;
-    char* buffer = calloc(MAX_PACKET_SIZE+1, sizeof(char));
+    char* buffer = (char*)calloc(MAX_PACKET_SIZE+1, sizeof(char));
     
     char* host_ip = argv[1];
     int host_port = atoi(argv[2]);

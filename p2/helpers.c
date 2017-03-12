@@ -10,7 +10,7 @@
 
 #include "helpers.h"
 
-char* pkt_type_arr[] = { "DAT", "ACK", "SYN", "FIN", "RST" };
+const char* pkt_type_arr[] = { "DAT", "ACK", "SYN", "FIN", "RST" };
 
 int sendMsg(int sock,char *sentstr,struct sockaddr* saptr, socklen_t flen)
 {
@@ -47,7 +47,7 @@ char ** separateString(char *buffer, const char *separator, int* len)
 }
 
 packet* packet_parse(char* buffer){
-    packet* res = calloc(1, sizeof(struct packet));
+    packet* res = (packet*)calloc(1, sizeof(struct packet));
     char **result = NULL;
     int len;
     result = separateString(buffer, " ", &len);
@@ -117,7 +117,7 @@ packet* packet_parse(char* buffer){
 }
 
 char* packet_to_string(packet *source){
-    char* data = calloc(MAX_PACKET_SIZE+1, sizeof(char));
+    char* data = (char*)calloc(MAX_PACKET_SIZE+1, sizeof(char));
     char istr[10];
     sprintf(data, "_magic_ CSC361 _type_ %s", pkt_type_arr[source->type]);
     if(source->seq){
@@ -224,13 +224,13 @@ packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr
 
     //save packets in array
     //packet* window_arr[send_packets + 1] = calloc((send_packets+1), sizeof(struct packet));
-    packet** window_arr = calloc((send_packets+1), sizeof(struct packet*));
+    packet** window_arr = (packet**)calloc((send_packets+1), sizeof(struct packet*));
     
     int indx = 0;
     while(send_packets > 0)
     {
-        packet* pack = calloc(1, sizeof(struct packet));
-        pack->data = calloc(MAX_PAYLOAD_SIZE+1, sizeof(char));
+        packet* pack = (packet*)calloc(1, sizeof(struct packet));
+        pack->data = (char*)calloc(MAX_PAYLOAD_SIZE+1, sizeof(char));
 
         int packets_read;//payload
 
@@ -263,7 +263,7 @@ void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* pa
     ack_pack.ack = 0;
     ack_pack.payload = 0;
     ack_pack.win = win;
-    ack_pack.data = calloc(1, sizeof(char));
+    ack_pack.data = (char*)calloc(1, sizeof(char));
     strcpy(ack_pack.data, "");
     char* ack_str = packet_to_string(&ack_pack);
 
@@ -282,7 +282,7 @@ int SYN_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* par
     syn_pack.ack = 0;
     syn_pack.payload = 0;
     syn_pack.win = 0;
-    syn_pack.data = calloc(1, sizeof(char));
+    syn_pack.data = (char*)calloc(1, sizeof(char));
     strcpy(syn_pack.data, "");
     char* syn_str = packet_to_string(&syn_pack);
 
@@ -299,7 +299,7 @@ void FIN_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* pa
     fin_pack->ack = 0;
     fin_pack->payload = 0;
     fin_pack->win = 0;
-    fin_pack->data = calloc(1, sizeof(char));
+    fin_pack->data = (char*)calloc(1, sizeof(char));
     strcpy(fin_pack->data, "");
     char* fin_str = packet_to_string(fin_pack);
 
@@ -329,7 +329,7 @@ void RST_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* pa
     rst_pack.ack = seq;
     rst_pack.payload = 0;
     rst_pack.win = window_size;
-    rst_pack.data = calloc(1, sizeof(char));
+    rst_pack.data = (char*)calloc(1, sizeof(char));
     strcpy(rst_pack.data, "");
     char* rst_str = packet_to_string(&rst_pack);
 
