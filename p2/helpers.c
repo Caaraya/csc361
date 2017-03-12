@@ -217,7 +217,7 @@ void process_packets(packet* pack, packet** window_arr, FILE* file, int* window_
 //for client
 packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file,  int* current_seqno, enum system_states *stat, packet* last_received, int* last_indx){
     //remove non acknowledged packets still in window
-    int send_packets = (*current_seqno - last_received->ack)/MAX_PAYLOAD_SIZE;
+    int send_packets = last_received->win;
 
     //send up to max amount of packets
     send_packets = MAX_WINDOW_IN_PACKETS - send_packets;
