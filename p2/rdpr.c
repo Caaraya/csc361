@@ -25,8 +25,6 @@ int main(int argc, char **argv)
     
     char* host_ip = argv[1];
     int host_port = atoi(argv[2]);
-    char* sender_ip;
-    int sender_port;
     char* filename = argv[3];
     
     FILE* filecontent = fopen(filename, "w");
@@ -55,8 +53,8 @@ int main(int argc, char **argv)
 	sa_host.sin_addr.s_addr = inet_addr(host_ip);
 	sa_host.sin_port = host_port;
 	
-	socklen_t flen = sizeof(sa_host);
-	sender_flen = sizeof(sa_host);
+	//socklen_t flen = sizeof(sa_host);
+	//sender_flen = sizeof(sa_host);
 	ssize_t rsize;
 	//needed for processing
 	char* buffer = calloc(MAX_PACKET_SIZE+1, sizeof(char));
@@ -163,6 +161,7 @@ int main(int argc, char **argv)
 					process_packets(packet, window, filecontent, &window_size, &acked_to);
 					acked_to_same = (acked_to == last_acked_to);
 
+					//send ack
 					statistics.ack++;
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
 					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, packet);

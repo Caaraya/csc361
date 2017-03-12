@@ -313,7 +313,7 @@ void DAT_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* pa
     dat_pack->type = DAT;
     dat_pack->seq = seq;
     dat_pack->ack = 0;
-    dat_pack->payload = 0;
+    dat_pack->payload = increment;
     dat_pack->win = 0;
     char* dat_str = packet_to_string(dat_pack);
 

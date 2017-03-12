@@ -54,10 +54,10 @@ int main(int argc, char **argv)
     sa_peer.sin_port = receiver_port;
     sa_peer.sin_addr.s_addr = inet_addr(receiver_ip);
     
-    socklen_t flen_host;
+    //socklen_t flen_host;
     socklen_t flen_peer;
     
-    flen_host = sizeof(sa_host);
+    //flen_host = sizeof(sa_host);
     flen_peer = sizeof(sa_peer);
     
     int sockopt = 1;
@@ -97,7 +97,6 @@ int main(int argc, char **argv)
     fd_set read_fds;
     FD_ZERO(&read_fds);
     FD_SET(sock, &read_fds);
-    long unsigned int position_of_file = 0;
     //for random seq number
     srand(time(NULL)); 
 
@@ -133,7 +132,7 @@ int main(int argc, char **argv)
                 pack = packet_parse(buffer);
                 statistics.ack++;
                 //bulk send changes the value of the array size save it before
-                int indx_before = (last_indx_sent_not_acked == -1 ? 0 : last_indx_sent_not_acked);
+                int indx_before = last_indx_sent_not_acked + 1;
                 int i=0;
 
                 packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, pack, &last_indx_sent_not_acked);
@@ -153,8 +152,7 @@ int main(int argc, char **argv)
         
     }
     int ack_count = 0;
-    int last_ack = NULL;
-    packet* last_packet;
+    int last_ack = 0;
     char logType;
     
     while(1)
@@ -175,6 +173,8 @@ int main(int argc, char **argv)
 		    
 		    //retramsmit not yet acknowleged segment with last_ack ackno
 		    //start timer
+            timeout.tv_sec = 2;
+            timeout.tv_usec = 0;
 	    }
 	    if(FD_ISSET(sock, &read_fds))
 	    {
@@ -204,6 +204,68 @@ int main(int argc, char **argv)
             }
             if(logType){
                 log_packet(logType, &sa_host, &sa_peer, pack);
+            }
+
+        switch(pack->type){
+            case ACK:
+                statistics.ack++;
+                if(logType == 'S'){ //resend packet with last_ack = ack + seqno
+                    int i = 0;
+                    packet packet_dat;
+                    while(i <= last_indx_sent_not_acked){
+                        if(sent_packets_not_acked[i]->ack > last_ack && sent_packets_not_acked[i]->ack <= (last_ack + MAX_PACKET_SIZE)){
+                            //found the packet to send
+                            packet_dat = *sent_packets_not_acked[i];
+                            break;
+                        }
+                        i++;
+                    }
+                    char* dat_str = packet_to_string(&packet_dat);
+
+                    sendto(sock, dat_str, MAX_PACKET_SIZE, 0, (struct sockaddr*) &sa_peer, flen_peer);
+                    log_packet('s', &sa_host, &sa_peer, &packet_dat);
+                }
+                else if(logType == 'r' || logType == 'R'){// normal process
+                    int i=0;
+                    while(i<= last_indx_sent_not_acked){
+                        if(sent_packets_not_acked[i]->ack == last_ack){
+                            //remove this packet by replacing by last element
+                            sent_packets_not_acked[i] = sent_packets_not_acked[last_indx_sent_not_acked];
+                            sent_packets_not_acked[last_indx_sent_not_acked] = NULL;
+
+                            //decrement counter and realloc list
+                            last_indx_sent_not_acked--;
+                            sent_packets_not_acked = (packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked+1) * sizeof(packet*));
+                            break;
+                        }
+                        i++;
+                    }
+
+                    int indx_before = last_indx_sent_not_acked + 1;
+                    i=0;
+
+                    packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, pack, &last_indx_sent_not_acked);
+                    sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked+1) * sizeof(packet*));
+
+                    //iterate over both and add* to array
+                    for(;indx_before<=last_indx_sent_not_acked; indx_before++ ){
+                        sent_packets_not_acked[indx_before] = received[i];
+                        i++;
+                    }
+
+                }
+                break;
+            case FIN:
+                log_stats(&statistics, 1);
+                exit(0);
+                break;
+            case RST:
+                sys_state = RESET;
+                exit(-1);
+                break;
+            default:
+                printf("sender received invalid type");
+                break;
             }
 		
 	    }
