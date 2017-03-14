@@ -11,9 +11,9 @@
 #include <fcntl.h>
 
 #define MAX_WINDOW_IN_PACKETS 10
-#define MAX_PACKET_SIZE 1024 
+#define MAX_PACKET_SIZE 900 
 #define TIMEOUT 600  
-#define MAX_PAYLOAD_SIZE 900 
+#define MAX_PAYLOAD_SIZE 1024 
 
 enum system_states {SYNACK,DATA,RESET,EXIT};
 
@@ -37,6 +37,7 @@ typedef struct stats {
     int fin;
     int rst;
     int ack;
+    int rst_r;
     //sent /received stats data/bytes
     int data_total;
     int data_unique;
@@ -62,3 +63,4 @@ void RST_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* pa
 
 void log_stats(stats* statistics, int is_sender);
 void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in* destination, struct packet* pack);
+

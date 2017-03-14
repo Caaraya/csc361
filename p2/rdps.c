@@ -77,6 +77,16 @@ int main(int argc, char **argv)
 	}
 	
     stats statistics;
+    statistics.rst = 0;
+    statistics.syn = 0;
+    statistics.fin = 0;
+    statistics.ack = 0;
+    statistics.rst_r = 0;
+    //sent /received stats data/bytes
+    statistics.data_total = 0;
+    statistics.data_unique = 0;
+    statistics.packet_total = 0;
+    statistics.packet_unique = 0;
 
     enum system_states sys_state = SYNACK;
     
@@ -132,14 +142,14 @@ int main(int argc, char **argv)
                 pack = packet_parse(buffer);
                 statistics.ack++;
                 //bulk send changes the value of the array size save it before
-                int indx_before = last_indx_sent_not_acked + 1;
+                int indx_before = (last_indx_sent_not_acked == -1?0: last_indx_sent_not_acked);
                 int i=0;
 
                 packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, pack, &last_indx_sent_not_acked);
                 sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked+1) * sizeof(packet*));
 
                 //iterate over both and add* to array
-                for(;indx_before<=last_indx_sent_not_acked; indx_before++ ){
+                for(;indx_before<last_indx_sent_not_acked; indx_before++ ){
                     sent_packets_not_acked[indx_before] = received[i];
                     i++;
                 }
@@ -147,6 +157,7 @@ int main(int argc, char **argv)
                 free(pack);
                 timeout.tv_sec = 2;
                 timeout.tv_usec = 0;
+		break;
             }
         }
         
@@ -179,7 +190,7 @@ int main(int argc, char **argv)
 	    if(FD_ISSET(sock, &read_fds))
 	    {
             memset(buffer, '\0', MAX_PACKET_SIZE+1);
-	        rsize = recvfrom(sock, (void*)buffer, sizeof(buffer), 0, (struct sockaddr*)&sa_peer, &flen_peer);
+	        rsize = recvfrom(sock, (void*)buffer, MAX_PACKET_SIZE, 0, (struct sockaddr*)&sa_peer, &flen_peer);
 		    if(rsize < 0)
 		    {
 			    perror("receive from failed closing socket and exiting application...\n");
@@ -212,8 +223,8 @@ int main(int argc, char **argv)
                 if(logType == 'S'){ //resend packet with last_ack = ack + seqno
                     int i = 0;
                     packet packet_dat;
-                    while(i <= last_indx_sent_not_acked){
-                        if(sent_packets_not_acked[i]->ack > last_ack && sent_packets_not_acked[i]->ack <= (last_ack + MAX_PACKET_SIZE)){
+                    while(i < last_indx_sent_not_acked){
+                        if(sent_packets_not_acked[i]->seq > last_ack && sent_packets_not_acked[i]->seq <= (last_ack + MAX_PACKET_SIZE)){
                             //found the packet to send
                             packet_dat = *sent_packets_not_acked[i];
                             break;
@@ -227,13 +238,16 @@ int main(int argc, char **argv)
                 }
                 else if(logType == 'r' || logType == 'R'){// normal process
                     int i=0;
-                    while(i<= last_indx_sent_not_acked){
-                        if(sent_packets_not_acked[i]->ack == last_ack){
+                    while(i< last_indx_sent_not_acked){
+			if(sent_packets_not_acked[i] == 0){
+			    last_indx_sent_not_acked = i;
+			}
+                        else if(sent_packets_not_acked[i]->seq == last_ack){
                             //remove this packet by replacing by last element
                             sent_packets_not_acked[i] = sent_packets_not_acked[last_indx_sent_not_acked];
-                            sent_packets_not_acked[last_indx_sent_not_acked] = NULL;
+                            sent_packets_not_acked[last_indx_sent_not_acked] = 0;
 
-                            //decrement counter and realloc list
+                            //decrement counter and realloc list 
                             last_indx_sent_not_acked--;
                             sent_packets_not_acked = (packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked+1) * sizeof(packet*));
                             break;
@@ -241,14 +255,14 @@ int main(int argc, char **argv)
                         i++;
                     }
 
-                    int indx_before = last_indx_sent_not_acked + 1;
+                    int indx_before = last_indx_sent_not_acked;
                     i=0;
 
                     packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, pack, &last_indx_sent_not_acked);
                     sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked+1) * sizeof(packet*));
 
                     //iterate over both and add* to array
-                    for(;indx_before<=last_indx_sent_not_acked; indx_before++ ){
+                    for(;indx_before<last_indx_sent_not_acked; indx_before++ ){
                         sent_packets_not_acked[indx_before] = received[i];
                         i++;
                     }
@@ -256,6 +270,7 @@ int main(int argc, char **argv)
                 }
                 break;
             case FIN:
+		statistics.fin++;
                 log_stats(&statistics, 1);
                 exit(0);
                 break;
@@ -264,6 +279,7 @@ int main(int argc, char **argv)
                 exit(-1);
                 break;
             default:
+
                 printf("sender received invalid type");
                 break;
             }
@@ -278,3 +294,4 @@ int main(int argc, char **argv)
     // do stuff
     return 1;
 }
+

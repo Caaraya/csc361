@@ -53,8 +53,9 @@ int main(int argc, char **argv)
 	sa_host.sin_addr.s_addr = inet_addr(host_ip);
 	sa_host.sin_port = host_port;
 	
+
 	//socklen_t flen = sizeof(sa_host);
-	//sender_flen = sizeof(sa_host);
+	sender_flen = sizeof(sa_host);
 	ssize_t rsize;
 	//needed for processing
 	char* buffer = (char*)calloc(MAX_PACKET_SIZE+1, sizeof(char));
@@ -71,7 +72,7 @@ int main(int argc, char **argv)
 	}
 	
 
-	if(-1 == bind(sock, (struct sockaddr *)&sa_host, sizeof sa_host)){
+	if(-1 == bind(sock, (struct sockaddr *)&sa_host, sizeof(sa_host))){
 		perror("binding failed closing socket and exiting application...\n");
 		close(sock);
 		exit(EXIT_FAILURE);
@@ -79,6 +80,17 @@ int main(int argc, char **argv)
 
 	//initialize stats
 	stats statistics;
+
+	statistics.rst = 0;
+	statistics.syn = 0;
+	statistics.fin = 0;
+	statistics.ack = 0;
+	statistics.rst_r = 0;
+	//sent /received stats data/bytes
+	statistics.data_total = 0;
+	statistics.data_unique = 0;
+	statistics.packet_total = 0;
+	statistics.packet_unique = 0;
 
 	gettimeofday(&statistics.start, NULL);
 	//window
@@ -104,50 +116,54 @@ int main(int argc, char **argv)
 		if(FD_ISSET(sock, &read_fds))
 		{
 			memset(buffer, '\0', MAX_PACKET_SIZE);
-			packet* packet;
-			rsize = recvfrom(sock, (void*)buffer, sizeof(buffer), 0, (struct sockaddr*)&sender_address, &sender_flen);
-			if(rsize == -1){printf("recv error\n");}
+			packet* pack;
+			rsize = recvfrom(sock, (void*)buffer, MAX_PACKET_SIZE, 0, (struct sockaddr*)&sender_address, &sender_flen);
+			if(rsize == -1){
+				printf("recv error\n");
+			}
 
-			printf(buffer);
+			//printf(buffer);//
+			//printf(first_addr);
+			//printf(sender_address.sin_addr.s_addr);
 
 			if(first_addr == 0){
 				first_addr = sender_address.sin_addr.s_addr;
 			} else if(first_addr != sender_address.sin_addr.s_addr){
 				//reset
-				RST_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, 0);
+				RST_send(sock, &sa_host, &sender_address, sender_flen, pack->seq, 0);
 				exit(-1);
 			}
 		    
-			packet = packet_parse(buffer);
+			pack = packet_parse(buffer);
 
-			if(packet == NULL){
+			if(pack == NULL){
 				printf("packet corrupt");
 				continue;
 			}
-			if(packet->seq < acked_to){
-				statistics.data_total += packet-> payload;
+			if(pack->seq < acked_to){
+				statistics.data_total += pack->payload;
 				statistics.packet_total++;
-				ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, 0);
+				ACK_send(sock, &sa_host, &sender_address, sender_flen, pack->seq, 0);
 				continue;
 			}
 
 			char log_type = 'r';
 			// before smaller than smallest sequence
-			if(window[0] != NULL && packet->seq < window[0]->seq){
+			if(window[0] != NULL && pack->seq < window[0]->seq){
 				log_type = 'R';
 			}
 
-			log_packet(log_type, &sa_host, &sender_address, packet);
+			log_packet(log_type, &sa_host, &sender_address, pack);
 			//change variables based on packet type
-			switch(packet->type){
+			switch(pack->type){
 				case SYN:
 					//got syn request
 					statistics.syn++;
 					statistics.ack++;
-					acked_to_same = (acked_to == packet->seq);
-					acked_to = packet->seq;
-					ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
-					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, packet);
+					acked_to_same = (acked_to == pack->seq);
+					acked_to = pack->seq;
+					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
+					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, pack);
 					break;
 				case DAT:{
 					statistics.packet_total++;
@@ -155,32 +171,32 @@ int main(int argc, char **argv)
 						statistics.packet_unique++;
 						statistics.data_unique++;
 					}
-					statistics.data_total += packet->payload;
+					statistics.data_total += pack->payload;
 					//write to file change acked and packet to last received packet
 					int last_acked_to = acked_to;
-					process_packets(packet, window, filecontent, &window_size, &acked_to);
+					process_packets(pack, window, filecontent, &window_size, &acked_to);
 					acked_to_same = (acked_to == last_acked_to);
 
 					//send ack
 					statistics.ack++;
-					ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
-					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, packet);
+					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
+					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, pack);
 					break;
-				}
+				}break;
 				case RST:
 					statistics.rst++;
-					ACK_send(sock, &sa_host, &sender_address, sender_flen, packet->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
-					log_packet('s', &sa_host, &sender_address, packet);
+					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
+					log_packet('s', &sa_host, &sender_address, pack);
 					close(sock);
 					exit(-1);
 					break;
 				case FIN:{
 					statistics.fin++;
 					//send fin
-					packet_str = packet_to_string(packet);
+					packet_str = packet_to_string(pack);
 
 					sendto(sock, packet_str, MAX_PACKET_SIZE, 0, (struct sockaddr*) &sender_address, sender_flen);
-					log_packet('s', &sa_host, &sender_address, packet);
+					log_packet('s', &sa_host, &sender_address, pack);
 					int indx = 0;
 					while(indx < MAX_WINDOW_IN_PACKETS){
 						if (window[indx]!= NULL){fprintf(filecontent, "%s", window[indx]->data);}
@@ -191,7 +207,7 @@ int main(int argc, char **argv)
 					close(sock);
 					exit(0);
 					break;
-				}
+				} break;
 				default:
 					//terrible things
 					printf("got an ACK, receiver should never get ACK's\n");
@@ -206,3 +222,4 @@ int main(int argc, char **argv)
    //do stuff
    return 0;
 }
+
