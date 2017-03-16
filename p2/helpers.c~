@@ -151,17 +151,12 @@ packet* packet_parse(char* buffer){
             break;
         }
     }
-    for( i=0; i < len; i++) {
-        if(result[i]){
-            free(result[i]);
-        }
-    }
     free(result);
     return res;
 }
 
 char* packet_to_string(packet *source){
-    char* data = (char*)calloc(MAX_PAYLOAD_SIZE+1, sizeof(char));
+    char* data = (char*)calloc(MAX_PACKET_SIZE+1, sizeof(char));
     char istr[10];
     sprintf(data, "_magic_ CSC361 _type_ %s", pkt_type_arr[source->type]);
     if(source->seq){
@@ -186,7 +181,7 @@ char* packet_to_string(packet *source){
     }
     if(source->data){
         strcat(data, " \n ");
-	strcat(data, source->data);
+        strcat(data, source->data);
     }
 
     return data;
@@ -283,7 +278,7 @@ packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr
         else{//fin
             FIN_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, pack);
             *stat = EXIT;
-            break;
+            return window_arr;
         }
         send_packets--;
         indx++;
@@ -292,7 +287,7 @@ packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr
         *last_indx = indx;
     }
     else{
-        *last_indx += indx;
+        *last_indx += indx + 1;
     }
     return window_arr;
 }

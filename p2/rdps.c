@@ -146,7 +146,8 @@ int main(int argc, char **argv)
                 int i=0;
 
                 packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, pack, &last_indx_sent_not_acked);
-                sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked+1) * sizeof(packet*));
+                sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked) * sizeof(packet*));
+		printf("Allocating: %i\n", (last_indx_sent_not_acked)*sizeof(packet*));
 
                 //iterate over both and add* to array
                 for(;indx_before<last_indx_sent_not_acked; indx_before++ ){
@@ -244,12 +245,12 @@ int main(int argc, char **argv)
 			}
                         else if(sent_packets_not_acked[i]->seq == last_ack){
                             //remove this packet by replacing by last element
-                            sent_packets_not_acked[i] = sent_packets_not_acked[last_indx_sent_not_acked];
-                            sent_packets_not_acked[last_indx_sent_not_acked] = 0;
+                            sent_packets_not_acked[i] = sent_packets_not_acked[last_indx_sent_not_acked-1];
+                            sent_packets_not_acked[last_indx_sent_not_acked-1] = NULL;
 
                             //decrement counter and realloc list 
                             last_indx_sent_not_acked--;
-                            sent_packets_not_acked = (packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked+1) * sizeof(packet*));
+                            sent_packets_not_acked = (packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked) * sizeof(packet*));
                             break;
                         }
                         i++;
@@ -259,7 +260,7 @@ int main(int argc, char **argv)
                     i=0;
 
                     packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, pack, &last_indx_sent_not_acked);
-                    sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked+1) * sizeof(packet*));
+                    sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked) * sizeof(packet*));
 
                     //iterate over both and add* to array
                     for(;indx_before<last_indx_sent_not_acked; indx_before++ ){
@@ -272,6 +273,11 @@ int main(int argc, char **argv)
             case FIN:
 		statistics.fin++;
                 log_stats(&statistics, 1);
+		int i = 0;
+		for(i = 0; i < last_indx_sent_not_acked; i++) {
+			free(sent_packets_not_acked[i]);
+		}
+		free(sent_packets_not_acked);
                 exit(0);
                 break;
             case RST:
