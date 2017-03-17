@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 
 	gettimeofday(&statistics.start, NULL);
 	//window
-	packet* window[MAX_WINDOW_IN_PACKETS] = {NULL};
+	struct packet window[MAX_WINDOW_IN_PACKETS] = {{0}};
 
 	int window_size = MAX_WINDOW_IN_PACKETS;
 	
@@ -149,7 +149,7 @@ int main(int argc, char **argv)
 
 			char log_type = 'r';
 			// before smaller than smallest sequence
-			if(window[0] != NULL && pack->seq < window[0]->seq){
+			if(packetnotNull(&window[0]) && pack->seq < window[0].seq){
 				log_type = 'R';
 			}
 
@@ -160,11 +160,11 @@ int main(int argc, char **argv)
 					//got syn request
 					statistics.syn++;
 					statistics.ack++;
-					if(window[0] == NULL){
+					if(!packetnotNull(&window[0])){
 					    acked_to_same = 0;
 					}
 					else{
-					    acked_to_same = (window[0]->seq == acked_to ? 0 : acked_to == pack->seq);
+					    acked_to_same = (window[0].seq == acked_to ? 0 : acked_to == pack->seq);
 					}
 					acked_to = pack->seq;
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
@@ -181,11 +181,11 @@ int main(int argc, char **argv)
 					int last_acked_to = acked_to;
 					process_packets(pack, window, filecontent, &window_size, &acked_to);
 					
-					if(window[0] == NULL){
+					if(!packetnotNull(&window[0])){
 					    acked_to_same = 0;
 					}
 					else{
-					     acked_to_same = (window[0]->seq == acked_to ? 0 : acked_to == last_acked_to);
+					     acked_to_same = (window[0].seq == acked_to ? 0 : acked_to == last_acked_to);
 					}
 					//send ack
 					statistics.ack++;
@@ -203,18 +203,18 @@ int main(int argc, char **argv)
 				case FIN:{
 					statistics.fin++;
 					//send fin
-					packet_str = packet_to_string(pack);
-
-					sendto(sock, packet_str, MAX_PACKET_SIZE, 0, (struct sockaddr*) &sender_address, sender_flen);
-					log_packet('s', &sa_host, &sender_address, pack);
 					int indx = 0;
 					while(indx < MAX_WINDOW_IN_PACKETS){
-						if (window[indx]!= NULL){
-						     fprintf(filecontent, "%s", window[indx]->data);
+						if (packetnotNull(&window[indx])){
+						     fwrite(window[indx].data, sizeof(char), window[indx].payload, filecontent);
 						}
 
 						indx++;
 					}
+					packet_str = packet_to_string(pack);
+					sendto(sock, packet_str, MAX_PACKET_SIZE, 0, (struct sockaddr*) &sender_address, sender_flen);
+					log_packet('s', &sa_host, &sender_address, pack);
+					
 					log_stats(&statistics, 0);
 					close(sock);
 					exit(0);
