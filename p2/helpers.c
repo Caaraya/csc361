@@ -194,15 +194,22 @@ char* packet_to_string(packet *source){
 }
 //for server
 void process_packets(packet* pack, packet** window_arr, FILE* file, int* window_size, int* acked_to){
-    packet* current_pack = window_arr[0];
+    //packet*$ current_pack = window_arr[0];
+    //packet* current_pack = malloc(sizeof(packet));
+    //printf("%p\n", window_arr[0]);
+    //memcpy(current_pack, window_arr[0], sizeof(packet));
+    packet* current_pack = NULL;
     
     int last_index = -1;
-    if(current_pack == NULL){
-        window_arr[0] = pack;
-        current_pack = window_arr[0];
+    if(window_arr[0] == NULL){
+        current_pack = window_arr[0] = pack;
+        //current_pack = window_arr[0];
         last_index = 0;
     }
     else{
+	
+	current_pack = malloc(sizeof(packet));
+	memcpy(current_pack, window_arr[0], sizeof(packet));
         //get expected index of new packet
         int indx_pack = ((pack->seq - current_pack->seq)/MAX_PACKET_SIZE + ((pack->seq - current_pack->seq)%MAX_PACKET_SIZE != 0));//should be unique
         int indx = 0;

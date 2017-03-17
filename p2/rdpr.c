@@ -160,7 +160,12 @@ int main(int argc, char **argv)
 					//got syn request
 					statistics.syn++;
 					statistics.ack++;
-					acked_to_same = (acked_to == pack->seq);
+					if(window[0] == NULL){
+					    acked_to_same = 0;
+					}
+					else{
+					    acked_to_same = (window[0]->seq == acked_to ? 0 : acked_to == pack->seq);
+					}
 					acked_to = pack->seq;
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
 					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, pack);
@@ -175,8 +180,13 @@ int main(int argc, char **argv)
 					//write to file change acked and packet to last received packet
 					int last_acked_to = acked_to;
 					process_packets(pack, window, filecontent, &window_size, &acked_to);
-					acked_to_same = (acked_to == last_acked_to);
-
+					
+					if(window[0] == NULL){
+					    acked_to_same = 0;
+					}
+					else{
+					     acked_to_same = (window[0]->seq == acked_to ? 0 : acked_to == last_acked_to);
+					}
 					//send ack
 					statistics.ack++;
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack->seq, (int)( MAX_PAYLOAD_SIZE * window_size));
@@ -199,7 +209,9 @@ int main(int argc, char **argv)
 					log_packet('s', &sa_host, &sender_address, pack);
 					int indx = 0;
 					while(indx < MAX_WINDOW_IN_PACKETS){
-						if (window[indx]!= NULL){fprintf(filecontent, "%s", window[indx]->data);}
+						if (window[indx]!= NULL){
+						     fprintf(filecontent, "%s", window[indx]->data);
+						}
 
 						indx++;
 					}
