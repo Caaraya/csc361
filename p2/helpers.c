@@ -206,7 +206,7 @@ void process_packets(packet* pack, packet* window_arr, FILE* file, int* window_s
     
     packet empty = {0};
     packet copy[MAX_WINDOW_IN_PACKETS];
-    memcpy(copy, window_arr, sizeof(copy));
+    memcpy(copy, window_arr, sizeof(packet));
     
     packet current_pack = copy[0];
     
@@ -269,7 +269,7 @@ void process_packets(packet* pack, packet* window_arr, FILE* file, int* window_s
         }
 
     }
-    pack = &current_pack;
+    memcpy(pack, &current_pack, sizeof(packet));
     memcpy(window_arr, copy, sizeof(packet));
 }
 //for client
