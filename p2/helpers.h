@@ -11,9 +11,9 @@
 #include <fcntl.h>
 
 #define MAX_WINDOW_IN_PACKETS 10
-#define MAX_PACKET_SIZE 900 
+#define MAX_PACKET_SIZE 1024 
 #define TIMEOUT 600  
-#define MAX_PAYLOAD_SIZE 1024 
+#define MAX_PAYLOAD_SIZE 900 
 
 enum system_states {SYNACK,DATA,RESET,EXIT};
 
@@ -30,6 +30,10 @@ typedef struct packet {
     char* data;
 
 } packet;
+
+void packet_copy(struct packet* const dest, const struct packet* const src);
+struct packet packet_parse(char* buffer);
+char* packet_to_string(const packet* const);
 
 typedef struct stats {
     //sent /received stats packets
@@ -50,10 +54,8 @@ typedef struct stats {
 int packetnotNull(struct packet* pck);
 char ** separateString(char *buffer, const char *separator, int* len);
 int sendMsg(int sock,char *sentstr,struct sockaddr* saptr, socklen_t flen);
-struct packet* packet_parse(char* buffer);
 
-char* packet_to_string(packet*);
-void process_packets(struct packet* pack, struct packet* window_arr, FILE* file, int* window_size, int* acked_to);
+struct packet process_packets(const struct packet* const pack, struct packet* window_arr, FILE* file, int* window_size, int* acked_to);
 packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file, int* current_seqno, enum system_states  *stat, packet* last_received, int* indx);
 
 void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int win);

@@ -74,8 +74,8 @@ char ** separateString(char *buffer, const char *separator, int* len)
     return result;
 }
 
-packet* packet_parse(char* buffer){
-    packet* res = (packet*)calloc(1, sizeof(struct packet));
+packet packet_parse(char* buffer){
+    packet res;// = (packet*)calloc(1, sizeof(struct packet));
     char **result = NULL;
     int len;
     result = separateString(buffer, " ", &len);
@@ -92,49 +92,49 @@ packet* packet_parse(char* buffer){
         else if(!strcmp(result[i], "_type_")){
             if(!strcmp(result[i+1], "SYN")){
                 i+=1;
-                res->type = SYN;
+                res.type = SYN;
             }
             if(!strcmp(result[i+1], "ACK")){
                 i+=1;
-                res->type = ACK;
+                res.type = ACK;
             }
             else if(!strcmp(result[i+1], "DAT")){
                 i+=1;
-                res->type = DAT;
+                res.type = DAT;
             }
             else if(!strcmp(result[i+1], "FIN")){
                 i+=1;
-                res->type = FIN;
+                res.type = FIN;
             }else if(!strcmp(result[i+1], "RST")){
                 i+=1;
-                res->type = RST;
+                res.type = RST;
             }
         }
         else if(!strcmp(result[i], "_seqno_")){
             i+=1;
-            res->seq = atoi(result[i]);
+            res.seq = atoi(result[i]);
         }
         else if(!strcmp(result[i], "_ackno_")){
             i+=1;
-            res->ack = atoi(result[i]);
+            res.ack = atoi(result[i]);
         }
         else if(!strcmp(result[i], "_length_")){
             i+=1;
-            res->payload = atoi(result[i]);
+            res.payload = atoi(result[i]);
         }
         else if(!strcmp(result[i], "_size_")){
             i+=1;
-            res->win = atoi(result[i]);
+            res.win = atoi(result[i]);
         }
         else if(!strcmp(result[i], "\n")){
             i+=1;
             if(result[i] == NULL){
-                res->data = (char*)calloc(1, sizeof(char));
-                strcpy(res->data, "");//)res->data = "";
+                res.data = (char*)calloc(1, sizeof(char));
+                strcpy(res.data, "");//)res->data = "";
             }
             else{
-                res->data = (char*)calloc(sizeof(result[i])+1, sizeof(char));
-                res->data = result[i];
+                res.data = (char*)calloc(sizeof(result[i])+1, sizeof(char));
+                res.data = result[i];
             }
             /*strcpy(data, "");
             while(i < len){
@@ -160,8 +160,8 @@ packet* packet_parse(char* buffer){
     return res;
 }
 
-char* packet_to_string(packet *source){
-    char* data = (char*)calloc(MAX_PAYLOAD_SIZE+1, sizeof(char));
+char* packet_to_string(const packet* const source){
+    char* data = (char*)calloc(MAX_PACKET_SIZE+1, sizeof(char));
     char istr[10];
     sprintf(data, "_magic_ CSC361 _type_ %s", pkt_type_arr[source->type]);
     if(source->seq){
@@ -195,12 +195,20 @@ char* packet_to_string(packet *source){
 
 void packet_copy(struct packet* const dest, const struct packet* const src)
 {
+    assert(src != NULL);
+    //assert(src->data != NULL);
     dest->type = src->type;
     dest->payload = src->payload;
     dest->win = src->win;
     dest->seq = src->seq;
     dest->ack = src->ack;
-    strcpy(dest->data, src->data);
+    if(src->data != NULL){
+        dest->data = (char*)malloc(MAX_PAYLOAD_SIZE);
+        strcpy(dest->data, src->data);
+    }
+    else{
+        dest->data = NULL;
+    }
 }
 
 int packetnotNull(struct packet* pck){ //returns 0 if null and 1 if not
@@ -212,25 +220,31 @@ int packetnotNull(struct packet* pck){ //returns 0 if null and 1 if not
 }
 
 //for server
-void process_packets(packet* pack, packet* window_arr, FILE* file, int* window_size, int* acked_to){
+struct packet process_packets(const struct packet* const pack, packet* window_arr, FILE* file, int* window_size, int* acked_to){
     
     packet empty;// = {0};
     memset(&empty, 0, sizeof(empty));
     packet copy[MAX_WINDOW_IN_PACKETS];
-    memcpy(copy, window_arr, sizeof(packet)*MAX_WINDOW_IN_PACKETS);
+    //memcpy(copy, window_arr, sizeof(packet)*MAX_WINDOW_IN_PACKETS);
+    int ii = 0;
+    for(; ii < MAX_WINDOW_IN_PACKETS; ii++)
+    {
+       packet_copy(&copy[ii], &window_arr[ii]);
+    } 
     
     packet current_pack; //= copy[0];
-    packet_copy(&current_pack, &copy[0]);
     
     int last_index = -1;
     if(!packetnotNull(&copy[0])){
+	assert(pack != NULL);
         packet_copy(&copy[0], pack);
         packet_copy(&current_pack, pack);
         last_index = 0;
     }
     else{
+        packet_copy(&current_pack, &copy[0]);
         //get expected index of new packet
-        int indx_pack = ((pack->seq - current_pack.seq)/MAX_PACKET_SIZE + ((pack->seq - current_pack.seq)%MAX_PACKET_SIZE != 0));//should be unique
+        int indx_pack = ((pack->seq - current_pack.seq)/MAX_PAYLOAD_SIZE + ((pack->seq - current_pack.seq)%MAX_PAYLOAD_SIZE != 0));//should be unique
         int indx = 0;
         int potentialLoss = 0;
         if(!packetnotNull(&copy[indx_pack])){
@@ -245,7 +259,7 @@ void process_packets(packet* pack, packet* window_arr, FILE* file, int* window_s
             if(packetnotNull(&copy[indx])){
                 if(copy[indx].seq == next_seq){
                     //we found a valid packet
-                    packet_copy(&current, &copy[indx]);
+                    packet_copy(&current_pack, &copy[indx]);
                     last_index = indx;
                 }
             }
@@ -274,21 +288,28 @@ void process_packets(packet* pack, packet* window_arr, FILE* file, int* window_s
             {
                 fwrite(copy[finalPass].data, sizeof(char), copy[finalPass].payload, file);
                 *acked_to = copy[finalPass].seq;
-                current_pack = copy[finalPass];
-                copy[finalPass] = empty;
+                packet_copy(&current_pack, &copy[finalPass]);
+                packet_copy(&copy[finalPass], &empty);
                 finalPass++;
             }
             *window_size = MAX_WINDOW_IN_PACKETS;
         }
 
     }
-    memcpy(pack, &current_pack, sizeof(packet));
-    memcpy(window_arr, copy, sizeof(packet)*MAX_WINDOW_IN_PACKETS);
+    ii = 0;
+    //packet_copy(pack, &current_pack);
+    
+    for(; ii < MAX_WINDOW_IN_PACKETS; ii++)
+    {
+       packet_copy(&window_arr[ii], &copy[ii]);
+    } 
+    //memcpy(window_arr, copy, sizeof(packet)*MAX_WINDOW_IN_PACKETS);
+    return current_pack;
 }
 //for client
 packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file,  int* current_seqno, enum system_states *stat, packet* last_received, int* last_indx){
     //get remaining window availability
-    int send_packets = (last_received->win < 5*MAX_PAYLOAD_SIZE?(int)((last_received->win)/MAX_PAYLOAD_SIZE + (last_received->win)%MAX_PAYLOAD_SIZE): 4);
+    int send_packets = (last_received->win < 5*MAX_PACKET_SIZE?(int)((last_received->win)/MAX_PACKET_SIZE + (last_received->win)%MAX_PACKET_SIZE): 4);
 
     //save packets in array
     //packet* window_arr[send_packets + 1] = calloc((send_packets+1), sizeof(struct packet));
@@ -302,7 +323,7 @@ packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr
 
         int packets_read;//payload
 
-        if((packets_read = fread(pack->data, sizeof(char), MAX_PACKET_SIZE, file)) > 0){
+        if((packets_read = fread(pack->data, sizeof(char), MAX_PAYLOAD_SIZE, file)) > 0){
             window_arr[indx] = pack;
             DAT_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, packets_read, pack);
             *current_seqno += packets_read;

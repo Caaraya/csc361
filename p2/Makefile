@@ -7,7 +7,7 @@ SC=$(CC)
 all: rdps.out rdpr.out
 
 debug:
-	make all OPTIMIZE='-g'
+	make all OPTIMIZE='-g -O0'
 
 
 rdps.out: rdps.c  helpers.c helpers.h

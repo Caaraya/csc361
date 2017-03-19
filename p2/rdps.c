@@ -93,7 +93,7 @@ int main(int argc, char **argv)
     gettimeofday(&statistics.start, NULL);
 
     int sys_seq = 0;
-    packet* pack = NULL;
+    packet pack;
     int last_indx_sent_not_acked = -1;
     packet** sent_packets_not_acked = {NULL};
 
@@ -145,7 +145,7 @@ int main(int argc, char **argv)
                 int indx_before = (last_indx_sent_not_acked == -1?0: last_indx_sent_not_acked);
                 int i=0;
 
-                packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, pack, &last_indx_sent_not_acked);
+                packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, &pack, &last_indx_sent_not_acked);
                 sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked) * sizeof(packet*));
 
                 //iterate over both and add* to array
@@ -154,7 +154,7 @@ int main(int argc, char **argv)
                     i++;
                 }
 
-                free(pack);
+                //free(pack);
                 timeout.tv_sec = 2;
                 timeout.tv_usec = 0;
 		break;
@@ -199,11 +199,11 @@ int main(int argc, char **argv)
 		    }
             else{
                 pack = packet_parse(buffer);
-                if(last_ack == pack->ack){
+                if(last_ack == pack.ack){
                     ack_count += 1;
                     logType = 'R';
                     if (ack_count == 3){
-                        log_packet(logType, &sa_host, &sa_peer, pack);
+                        log_packet(logType, &sa_host, &sa_peer, &pack);
                         logType = 'S';
                     }
                 }
@@ -211,13 +211,13 @@ int main(int argc, char **argv)
                     ack_count = 0;
                     logType = 'r';
                 }
-                last_ack = pack->ack;
+                last_ack = pack.ack;
             }
             if(logType){
-                log_packet(logType, &sa_host, &sa_peer, pack);
+                log_packet(logType, &sa_host, &sa_peer, &pack);
             }
 
-        switch(pack->type){
+        switch(pack.type){
             case ACK:
                 statistics.ack++;
                 if(logType == 'S'){ //resend packet with last_ack = ack + seqno
@@ -258,7 +258,7 @@ int main(int argc, char **argv)
                     int indx_before = last_indx_sent_not_acked;
                     i=0;
 
-                    packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, pack, &last_indx_sent_not_acked);
+                    packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, &pack, &last_indx_sent_not_acked);
                     sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked) * sizeof(packet*));
 
                     //iterate over both and add* to array
