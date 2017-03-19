@@ -94,7 +94,8 @@ int main(int argc, char **argv)
 
 	gettimeofday(&statistics.start, NULL);
 	//window
-	struct packet window[MAX_WINDOW_IN_PACKETS] = {{0}};
+	struct packet window[MAX_WINDOW_IN_PACKETS];// = {{0}};
+	memset(&window, 0, sizeof(window));
 
 	int window_size = MAX_WINDOW_IN_PACKETS;
 	

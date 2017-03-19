@@ -130,7 +130,7 @@ packet* packet_parse(char* buffer){
             i+=1;
             if(result[i] == NULL){
                 res->data = (char*)calloc(1, sizeof(char));
-                res->data = "";
+                strcpy(res->data, "");//)res->data = "";
             }
             else{
                 res->data = (char*)calloc(sizeof(result[i])+1, sizeof(char));
@@ -193,6 +193,16 @@ char* packet_to_string(packet *source){
     
 }
 
+void packet_copy(struct packet* const dest, const struct packet* const src)
+{
+    dest->type = src->type;
+    dest->payload = src->payload;
+    dest->win = src->win;
+    dest->seq = src->seq;
+    dest->ack = src->ack;
+    strcpy(dest->data, src->data);
+}
+
 int packetnotNull(struct packet* pck){ //returns 0 if null and 1 if not
     if(pck == NULL || (pck->seq == 0 && pck->ack == 0 && pck->data == 0
      && pck->payload ==0 && pck->win == 0)){
@@ -204,15 +214,18 @@ int packetnotNull(struct packet* pck){ //returns 0 if null and 1 if not
 //for server
 void process_packets(packet* pack, packet* window_arr, FILE* file, int* window_size, int* acked_to){
     
-    packet empty = {0};
+    packet empty;// = {0};
+    memset(&empty, 0, sizeof(empty));
     packet copy[MAX_WINDOW_IN_PACKETS];
-    memcpy(copy, window_arr, sizeof(packet));
+    memcpy(copy, window_arr, sizeof(packet)*MAX_WINDOW_IN_PACKETS);
     
-    packet current_pack = copy[0];
+    packet current_pack; //= copy[0];
+    packet_copy(&current_pack, &copy[0]);
     
     int last_index = -1;
     if(!packetnotNull(&copy[0])){
-        current_pack = copy[0] = *pack;
+        packet_copy(&copy[0], pack);
+        packet_copy(&current_pack, pack);
         last_index = 0;
     }
     else{
@@ -221,7 +234,7 @@ void process_packets(packet* pack, packet* window_arr, FILE* file, int* window_s
         int indx = 0;
         int potentialLoss = 0;
         if(!packetnotNull(&copy[indx_pack])){
-            copy[indx_pack] = *pack; 
+            packet_copy(&copy[indx_pack], pack);
         }
         else{
             //duplicate? hopefully never happens ignore for now
@@ -232,7 +245,7 @@ void process_packets(packet* pack, packet* window_arr, FILE* file, int* window_s
             if(packetnotNull(&copy[indx])){
                 if(copy[indx].seq == next_seq){
                     //we found a valid packet
-                    current_pack = copy[indx];
+                    packet_copy(&current, &copy[indx]);
                     last_index = indx;
                 }
             }
@@ -270,7 +283,7 @@ void process_packets(packet* pack, packet* window_arr, FILE* file, int* window_s
 
     }
     memcpy(pack, &current_pack, sizeof(packet));
-    memcpy(window_arr, copy, sizeof(packet));
+    memcpy(window_arr, copy, sizeof(packet)*MAX_WINDOW_IN_PACKETS);
 }
 //for client
 packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file,  int* current_seqno, enum system_states *stat, packet* last_received, int* last_indx){
@@ -449,7 +462,7 @@ void log_stats(stats* stat, int is_sender){
                      (int) diff.tv_usec);
     }
 }
-void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in* destination, struct packet* pack){
+void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in* destination, struct packet* const pack){
     char strtime[100];
     struct timeval tv;
     time_t now;

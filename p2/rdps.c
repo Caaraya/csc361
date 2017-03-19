@@ -7,7 +7,7 @@
 #include <dirent.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <time.h>
+#include <sys/time.h>
 #include <fcntl.h>
 
 #include "helpers.h"
@@ -147,7 +147,6 @@ int main(int argc, char **argv)
 
                 packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, pack, &last_indx_sent_not_acked);
                 sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked) * sizeof(packet*));
-		printf("Allocating: %i\n", (last_indx_sent_not_acked)*sizeof(packet*));
 
                 //iterate over both and add* to array
                 for(;indx_before<last_indx_sent_not_acked; indx_before++ ){
@@ -270,7 +269,7 @@ int main(int argc, char **argv)
 
                 }
                 break;
-            case FIN:
+            case FIN: {
 		statistics.fin++;
                 log_stats(&statistics, 1);
 		int i = 0;
@@ -280,6 +279,7 @@ int main(int argc, char **argv)
 		free(sent_packets_not_acked);
                 exit(0);
                 break;
+	    }
             case RST:
                 sys_state = RESET;
                 exit(-1);
