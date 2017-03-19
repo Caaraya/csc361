@@ -133,8 +133,9 @@ packet packet_parse(char* buffer){
                 strcpy(res.data, "");//)res->data = "";
             }
             else{
-                res.data = (char*)calloc(sizeof(result[i])+1, sizeof(char));
-                res.data = result[i];
+                res.data = (char*)malloc(strlen(result[i])+1);
+                //res.data = result[i];
+		strcpy(res.data, result[i]);
             }
             /*strcpy(data, "");
             while(i < len){

@@ -28,7 +28,6 @@ typedef struct packet {
     int seq;
     int ack;
     char* data;
-
 } packet;
 
 void packet_copy(struct packet* const dest, const struct packet* const src);
