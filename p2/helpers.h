@@ -58,7 +58,7 @@ int sendMsg(int sock,char *sentstr,struct sockaddr* saptr, socklen_t flen);
 struct packet process_packets(struct packet* const pack, struct packet* window_arr, FILE* file, int* window_size, int* acked_to);
 packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file, int* current_seqno, enum system_states  *stat, packet* last_received, int* indx);
 
-void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int win);
+void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int win, int repeated);
 int SYN_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len);
 void FIN_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, packet* pack);
 void DAT_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int increment, packet* pack);

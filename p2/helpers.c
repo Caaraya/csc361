@@ -283,7 +283,7 @@ struct packet process_packets(struct packet* const pack, packet* window_arr, FIL
                     }
                     else{
                         window++;
-                        *acked_to = copy[indx].seq;
+                        //*acked_to = copy[indx].seq;
                     }
                      indx++;
                 }
@@ -356,7 +356,7 @@ packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr
     return window_arr;
 }
 
-void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int win){ 
+void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, int seq, int win, int acked_to_same){ 
     packet ack_pack;
     ack_pack.type = ACK;
     ack_pack.seq = 0;
@@ -368,7 +368,7 @@ void ACK_send(int sock, struct sockaddr_in* self_address, struct sockaddr_in* pa
     char* ack_str = packet_to_string(&ack_pack);
 
     sendto(sock, ack_str, MAX_PACKET_SIZE, 0, (struct sockaddr*) partner_sa, partner_sa_len);
-    log_packet('s', self_address, partner_sa, &ack_pack);
+    log_packet((acked_to_same?'S':'s'), self_address, partner_sa, &ack_pack);
 
     free(ack_str);
     free(ack_pack.data);

@@ -146,7 +146,7 @@ int main(int argc, char **argv)
 			if(pack.seq < acked_to){
 				statistics.data_total += pack.payload;
 				statistics.packet_total++;
-				ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, 0);
+				ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, 0, 0);
 				continue;
 			}
 
@@ -170,8 +170,8 @@ int main(int argc, char **argv)
 					    acked_to_same = (window[0].seq == acked_to ? 0 : acked_to == pack.seq);
 					}
 					acked_to = pack.seq;
-					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, (int)( MAX_PAYLOAD_SIZE * window_size));
-					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, &pack);
+					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, (int)( MAX_PAYLOAD_SIZE * window_size), acked_to_same);
+					//log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, &pack);
 					break;
 				case DAT:{
 					statistics.packet_total++;
@@ -192,14 +192,14 @@ int main(int argc, char **argv)
 					}
 					//send ack
 					statistics.ack++;
-					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, (int)( MAX_PAYLOAD_SIZE * window_size));
-					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, &pack);
+					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, (int)( MAX_PAYLOAD_SIZE * window_size), acked_to_same);
+					//log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, &pack);
 					break;
 				}
 				case RST:
 					statistics.rst++;
-					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, (int)( MAX_PAYLOAD_SIZE * window_size));
-					log_packet('s', &sa_host, &sender_address, &pack);
+					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, (int)( MAX_PAYLOAD_SIZE * window_size), 0);
+					//log_packet('s', &sa_host, &sender_address, &pack);
 					close(sock);
 					exit(-1);
 					break;
