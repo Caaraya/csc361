@@ -301,11 +301,6 @@ struct packet process_packets(struct packet* const pack, packet* window_arr, FIL
                 packet_copy(&copy[finalPass], &empty);
                 finalPass++;
             }
-	    ii = 0;
-	    for(; ii < MAX_WINDOW_IN_PACKETS; ii++)
-	    {
-		packet_destruct(&window_arr[ii]);
-	    }
             *window_size = MAX_WINDOW_IN_PACKETS;
         }
 
