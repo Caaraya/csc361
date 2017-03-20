@@ -76,6 +76,7 @@ char ** separateString(char *buffer, const char *separator, int* len)
 
 packet packet_parse(char* buffer){
     packet res;// = (packet*)calloc(1, sizeof(struct packet));
+    memset(&res, 0, sizeof(res));
     char **result = NULL;
     int len;
     result = separateString(buffer, " ", &len);
@@ -137,18 +138,6 @@ packet packet_parse(char* buffer){
                 //res.data = result[i];
 		strcpy(res.data, result[i]);
             }
-            /*strcpy(data, "");
-            while(i < len){
-                strcat(data, result[i]);
-                if(!strcmp(result[i], "\0")){
-                    strcat(data, " ");
-                }
-		else{
-		    break;
-		}
-                i++;
-            }*/
-	    //res->data= data;
             break;
         }
     }
@@ -254,12 +243,24 @@ struct packet process_packets(struct packet* const pack, packet* window_arr, FIL
         packet_copy(&current_pack, &copy[0]);
         //get expected index of new packet
         int indx_pack = ((pack->seq - current_pack.seq)/MAX_PAYLOAD_SIZE + ((pack->seq - current_pack.seq)%MAX_PAYLOAD_SIZE != 0));//should be unique
+        if(indx_pack < 0){
+            ii = 0;
+	    while(ii < MAX_WINDOW_IN_PACKETS){
+            	if(ii + 1 < MAX_WINDOW_IN_PACKETS){
+		    copy[ii+1] = copy[ii];
+		} //will occur in packet loss if last index is filled
+	    }
+	    indx_pack = 0;
+            packet_copy(&copy[0], pack);
+            packet_copy(&current_pack, &copy[0]);
+	}
         int indx = 0;
         int potentialLoss = 0;
         if(!packetnotNull(&copy[indx_pack])){
             packet_copy(&copy[indx_pack], pack);
         }
         else{
+            //could also be fix for unordered packets above making this occur
             //duplicate? hopefully never happens ignore for now
         }
         while(indx < MAX_WINDOW_IN_PACKETS)
@@ -270,6 +271,7 @@ struct packet process_packets(struct packet* const pack, packet* window_arr, FIL
                     //we found a valid packet
                     packet_copy(&current_pack, &copy[indx]);
                     last_index = indx;
+		    *acked_to = copy[indx].seq;
                 }
             }
             else{
@@ -281,6 +283,7 @@ struct packet process_packets(struct packet* const pack, packet* window_arr, FIL
                     }
                     else{
                         window++;
+                        *acked_to = copy[indx].seq;
                     }
                      indx++;
                 }
@@ -296,7 +299,7 @@ struct packet process_packets(struct packet* const pack, packet* window_arr, FIL
             while(finalPass < last_index)
             {
                 fwrite(copy[finalPass].data, sizeof(char), copy[finalPass].payload, file);
-                *acked_to = copy[finalPass].seq;
+                //*acked_to = copy[finalPass].seq;
                 packet_copy(&current_pack, &copy[finalPass]);
                 packet_copy(&copy[finalPass], &empty);
                 finalPass++;
@@ -307,14 +310,11 @@ struct packet process_packets(struct packet* const pack, packet* window_arr, FIL
     }
     ii = 0;
     //packet_copy(pack, &current_pack);
-    
     for(; ii < MAX_WINDOW_IN_PACKETS; ii++)
     {
        packet_copy(&window_arr[ii], &copy[ii]);
-       packet_destruct(&copy[ii]);
     } 
     //memcpy(window_arr, copy, sizeof(packet)*MAX_WINDOW_IN_PACKETS);
-    packet_destruct(pack);
     return current_pack;
 }
 //for client
