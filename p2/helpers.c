@@ -211,6 +211,12 @@ void packet_copy(struct packet* const dest, const struct packet* const src)
         dest->data = NULL;
     }
 }
+void packet_destruct(struct packet* const destructed_packet)
+{
+    assert(destructed_packet != NULL);
+    if(destructed_packet->data != NULL)
+        free(destructed_packet->data); 
+}
 
 int packetnotNull(struct packet* pck){ //returns 0 if null and 1 if not
     if(pck == NULL || (pck->seq == 0 && pck->ack == 0 && pck->data == 0
@@ -221,16 +227,18 @@ int packetnotNull(struct packet* pck){ //returns 0 if null and 1 if not
 }
 
 //for server
-struct packet process_packets(const struct packet* const pack, packet* window_arr, FILE* file, int* window_size, int* acked_to){
+struct packet process_packets(struct packet* const pack, packet* window_arr, FILE* file, int* window_size, int* acked_to){
     
     packet empty;// = {0};
     memset(&empty, 0, sizeof(empty));
+    empty.data = NULL;
     packet copy[MAX_WINDOW_IN_PACKETS];
     //memcpy(copy, window_arr, sizeof(packet)*MAX_WINDOW_IN_PACKETS);
     int ii = 0;
     for(; ii < MAX_WINDOW_IN_PACKETS; ii++)
     {
        packet_copy(&copy[ii], &window_arr[ii]);
+       packet_destruct(&window_arr[ii]);
     } 
     
     packet current_pack; //= copy[0];
@@ -293,6 +301,11 @@ struct packet process_packets(const struct packet* const pack, packet* window_ar
                 packet_copy(&copy[finalPass], &empty);
                 finalPass++;
             }
+	    ii = 0;
+	    for(; ii < MAX_WINDOW_IN_PACKETS; ii++)
+	    {
+		packet_destruct(&window_arr[ii]);
+	    }
             *window_size = MAX_WINDOW_IN_PACKETS;
         }
 
@@ -303,8 +316,10 @@ struct packet process_packets(const struct packet* const pack, packet* window_ar
     for(; ii < MAX_WINDOW_IN_PACKETS; ii++)
     {
        packet_copy(&window_arr[ii], &copy[ii]);
+       packet_destruct(&copy[ii]);
     } 
     //memcpy(window_arr, copy, sizeof(packet)*MAX_WINDOW_IN_PACKETS);
+    packet_destruct(pack);
     return current_pack;
 }
 //for client

@@ -52,6 +52,8 @@ int main(int argc, char **argv)
 	sa_host.sin_family = AF_INET;
 	sa_host.sin_addr.s_addr = inet_addr(host_ip);
 	sa_host.sin_port = host_port;
+
+	memset(&sender_address, 0, sizeof sender_address);
 	
 
 	//socklen_t flen = sizeof(sa_host);
@@ -193,7 +195,7 @@ int main(int argc, char **argv)
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, (int)( MAX_PAYLOAD_SIZE * window_size));
 					log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, &pack);
 					break;
-				}break;
+				}
 				case RST:
 					statistics.rst++;
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, (int)( MAX_PAYLOAD_SIZE * window_size));
@@ -218,14 +220,20 @@ int main(int argc, char **argv)
 					
 					log_stats(&statistics, 0);
 					close(sock);
+					int ii = 0;
+					for(; ii < MAX_WINDOW_IN_PACKETS; ii++)
+					{
+						packet_destruct(&window[ii]);
+					}
 					exit(0);
 					break;
-				} break;
+				}
 				default:
 					//terrible things
 					printf("got an ACK, receiver should never get ACK's\n");
 					break;
 			}
+			packet_destruct(&pack);
 		}
 		//reset select
 		FD_ZERO( &read_fds );
