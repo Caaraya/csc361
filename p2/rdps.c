@@ -145,7 +145,7 @@ int main(int argc, char **argv)
                 int indx_before = (last_indx_sent_not_acked == -1?0: last_indx_sent_not_acked);
                 int i=0;
 
-                packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, &pack, &last_indx_sent_not_acked);
+                packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, &pack, &last_indx_sent_not_acked, &statistics);
                 sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked) * sizeof(packet*));
 
                 //iterate over both and add* to array
@@ -227,6 +227,8 @@ int main(int argc, char **argv)
                         if(sent_packets_not_acked[i]->seq > last_ack && sent_packets_not_acked[i]->seq <= (last_ack + MAX_PACKET_SIZE)){
                             //found the packet to send
                             packet_dat = *sent_packets_not_acked[i];
+			    statistics.data_total += packet_dat.payload;
+                            statistics.packet_total += 1;
                             break;
                         }
                         i++;
@@ -258,7 +260,7 @@ int main(int argc, char **argv)
                     int indx_before = last_indx_sent_not_acked;
                     i=0;
 
-                    packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, &pack, &last_indx_sent_not_acked);
+                    packet ** received = bulksendDAT(sock, &sa_host, &sa_peer, flen_peer, filecontent, &sys_seq, &sys_state, &pack, &last_indx_sent_not_acked, &statistics);
                     sent_packets_not_acked =(packet **) realloc(sent_packets_not_acked, (last_indx_sent_not_acked) * sizeof(packet*));
 
                     //iterate over both and add* to array

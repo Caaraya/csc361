@@ -1,3 +1,7 @@
+#PLEASE NOTE EXECUTABLES ARE .out
+for make clean to function properly and get rid of executables as well
+
+
 1. How do you design and implement your RDP header and header fields? Do you use any additional header fields?
 
 I do not use any extra header fields other than specified in the assignment, I use a string to store the header, it's space separated

@@ -177,7 +177,7 @@ int main(int argc, char **argv)
 					statistics.packet_total++;
 					if(log_type == 'r') { 
 						statistics.packet_unique++;
-						statistics.data_unique++;
+						statistics.data_unique += pack.payload;
 					}
 					statistics.data_total += pack.payload;
 					//write to file change acked and packet to last received packet

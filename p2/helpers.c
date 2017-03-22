@@ -318,7 +318,7 @@ struct packet process_packets(struct packet* const pack, packet* window_arr, FIL
     return current_pack;
 }
 //for client
-packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file,  int* current_seqno, enum system_states *stat, packet* last_received, int* last_indx){
+packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr_in* partner_sa, socklen_t partner_sa_len, FILE* file,  int* current_seqno, enum system_states *status, packet* last_received, int* last_indx, stats* stat){
     //get remaining window availability
     int send_packets = (last_received->win < 5*MAX_PACKET_SIZE?(int)((last_received->win)/MAX_PACKET_SIZE + (last_received->win)%MAX_PACKET_SIZE): 4);
 
@@ -338,10 +338,14 @@ packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr
             window_arr[indx] = pack;
             DAT_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, packets_read, pack);
             *current_seqno += packets_read;
+	    stat->data_total += packets_read;
+	    stat->data_unique += packets_read;
+            stat->packet_total += 1;
+            stat->packet_unique += 1;
         }
         else{//fin
             FIN_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, pack);
-            *stat = EXIT;
+            *status = EXIT;
             break;
         }
         send_packets--;
@@ -455,7 +459,7 @@ void log_stats(stats* stat, int is_sender){
                     "SYN packets sent: %d\n"
                     "FIN packets sent: %d\n"
                     "RST packets sent: %d\n"
-                    "ACK packets sent: %d\n"
+                    "ACK packets received: %d\n"
                     "RST packets recieved: %d\n"
                     "total time duration (second): %d.%d\n",
                      stat->data_total,
