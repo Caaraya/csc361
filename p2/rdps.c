@@ -267,12 +267,13 @@ int main(int argc, char **argv)
                     for(;indx_before<last_indx_sent_not_acked; indx_before++ ){
                         sent_packets_not_acked[indx_before] = received[i];
                         i++;
-                    }
+                    }// fin for 0 non acked dat
 
                 }
                 break;
             case FIN: {
 		statistics.fin++;
+	        FIN_send(sock, &sa_host, &sa_peer, flen_peer, pack.seq+1, &pack);
                 log_stats(&statistics, 1);
 		int i = 0;
 		for(i = 0; i < last_indx_sent_not_acked; i++) {
@@ -287,6 +288,7 @@ int main(int argc, char **argv)
                 exit(-1);
                 break;
             default:
+
 
                 printf("sender received invalid type");
                 break;

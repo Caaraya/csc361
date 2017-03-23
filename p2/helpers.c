@@ -246,6 +246,9 @@ struct packet process_packets(struct packet* const pack, packet* window_arr, FIL
         if(indx_pack < 0){
             ii = 0;
 	    while(ii < MAX_WINDOW_IN_PACKETS){
+		if(!packetnotNull(&copy[ii])){
+                   break;
+                }
             	if(ii + 1 < MAX_WINDOW_IN_PACKETS){
 		    copy[ii+1] = copy[ii];
 		} //will occur in packet loss if last index is filled
@@ -292,8 +295,50 @@ struct packet process_packets(struct packet* const pack, packet* window_arr, FIL
             }
             indx++;
         }
+        if(*acked_to != copy[0].seq){
+           int finalPass = 0;
+           while(finalPass < last_index){
+              fwrite(copy[finalPass].data, sizeof(char), copy[finalPass].payload, file);
+              packet_copy(&current_pack, &copy[finalPass]);
+              packet_copy(&copy[finalPass], &empty);
+              finalPass++;
+           }
+           // reset
+           packet_copy(&copy[0], &copy[last_index]);
+           packet_copy(&copy[last_index], &empty);
+           packet_copy(&current_pack, &copy[0]);
+           finalPass = MAX_WINDOW_IN_PACKETS-1;
+           int countloop = 0;
+           while(finalPass > 0){
+               if(!packetnotNull(&copy[finalPass])){
+                   finalPass--;
+                   continue;
+               }
+               indx_pack = ((copy[finalPass].seq - current_pack.seq)/MAX_PAYLOAD_SIZE + ((copy[finalPass].seq - current_pack.seq)%MAX_PAYLOAD_SIZE != 0));//should be unique
+               if(!packetnotNull(&copy[indx_pack])){
+                   packet_copy(&copy[indx_pack], &copy[finalPass]);
+                   packet_copy(&copy[finalPass], &empty);
+                   finalPass--;
+                   countloop = 0;
+               }
+               else{
+                  packet p;
+                  
+                   packet_copy(&p, &copy[finalPass]);
+                   packet_copy(&copy[finalPass], &copy[indx_pack]);
+                   packet_copy(&copy[indx_pack], &p);
+                   if(countloop == 0){
+                       countloop++;
+                   }
+                   else{
+                       finalPass--;
+                   }
+               }
+                
+           }
+        }
 
-        if(!potentialLoss &&(current_pack.payload < MAX_PAYLOAD_SIZE || last_index == MAX_WINDOW_IN_PACKETS-1)){//if last dat or filed list or 
+        /*if(!potentialLoss &&(current_pack.payload < MAX_PAYLOAD_SIZE || last_index == MAX_WINDOW_IN_PACKETS-1)){//if last dat or filed list or 
             //start processing
             int finalPass = 0;
             while(finalPass < last_index)
@@ -305,7 +350,7 @@ struct packet process_packets(struct packet* const pack, packet* window_arr, FIL
                 finalPass++;
             }
             *window_size = MAX_WINDOW_IN_PACKETS;
-        }
+        }*/
 
     }
     ii = 0;
@@ -344,7 +389,7 @@ packet** bulksendDAT(int sock, struct sockaddr_in* self_address, struct sockaddr
             stat->packet_unique += 1;
         }
         else{//fin
-            FIN_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, pack);
+            //FIN_send(sock, self_address, partner_sa, partner_sa_len, *current_seqno, pack);
             *status = EXIT;
             break;
         }

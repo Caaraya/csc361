@@ -193,7 +193,10 @@ int main(int argc, char **argv)
 					//send ack
 					statistics.ack++;
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, (int)( MAX_PAYLOAD_SIZE * window_size), acked_to_same);
-					//log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, &pack);
+					if(pack.payload < 900 && window_size == MAX_WINDOW_IN_PACKETS-1){
+						FIN_send(sock, &sa_host, &sender_address, sender_flen, pack.seq+1, &pack);
+                                        }
+                                     	//log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, &pack);
 					break;
 				}
 				case RST:
