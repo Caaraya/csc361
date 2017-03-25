@@ -106,16 +106,26 @@ int main(int argc, char **argv)
    FD_ZERO(&read_fds);
    FD_SET(sock, &read_fds);
    int acked_to_same = 0;
-   
+   int last_pck_reached = 0;
+   struct timeval timeout;
+   timeout.tv_sec = 2;
+   timeout.tv_usec = 0; 
     while(1)
     {
-        select_result = select(sock + 1,&read_fds, 0, 0, 0);
+        select_result = select(sock + 1,&read_fds, 0, 0, &timeout);
         if(select_result == -1)
 		{
 			perror("select call failed closing socket and exiting application...\n");
 			close(sock);
 			exit(EXIT_FAILURE);
 		}
+		if(select_result ==0){
+		    if(acked_to != 0){ 
+		        ACK_send(sock, &sa_host, &sender_address, sender_flen, acked_to, (int)(MAX_PAYLOAD_SIZE*window_size) ,1);
+                    }
+                    timeout.tv_sec = 2;
+                    timeout.tv_usec = 0;
+                }
 		if(FD_ISSET(sock, &read_fds))
 		{
 			memset(buffer, '\0', MAX_PACKET_SIZE);
@@ -193,7 +203,10 @@ int main(int argc, char **argv)
 					//send ack
 					statistics.ack++;
 					ACK_send(sock, &sa_host, &sender_address, sender_flen, pack.seq, (int)( MAX_PAYLOAD_SIZE * window_size), acked_to_same);
-					if(pack.payload < 900 && window_size == MAX_WINDOW_IN_PACKETS-1){
+					if(pack.payload < 900){
+                                            last_pck_reached = 1;
+                                        } 
+					if(last_pck_reached == 1 && window_size <= MAX_WINDOW_IN_PACKETS-2){
 						FIN_send(sock, &sa_host, &sender_address, sender_flen, pack.seq+1, &pack);
                                         }
                                      	//log_packet((acked_to_same?'S':'s'), &sa_host, &sender_address, &pack);
@@ -213,6 +226,7 @@ int main(int argc, char **argv)
 					while(indx < MAX_WINDOW_IN_PACKETS){
 						if (packetnotNull(&window[indx])){
 						     fwrite(window[indx].data, sizeof(char), window[indx].payload, filecontent);
+						     packet_destruct(&window[indx]);
 						}
 
 						indx++;
@@ -223,11 +237,6 @@ int main(int argc, char **argv)
 					
 					log_stats(&statistics, 0);
 					close(sock);
-					int ii = 0;
-					for(; ii < MAX_WINDOW_IN_PACKETS; ii++)
-					{
-						packet_destruct(&window[ii]);
-					}
 					exit(0);
 					break;
 				}
@@ -236,7 +245,9 @@ int main(int argc, char **argv)
 					printf("got an ACK, receiver should never get ACK's\n");
 					break;
 			}
-			packet_destruct(&pack);
+			if (packetnotNull(&pack) && pack.type != FIN){
+                            packet_destruct(&pack);
+                        }
 		}
 		//reset select
 		FD_ZERO( &read_fds );

@@ -244,7 +244,7 @@ int main(int argc, char **argv)
 			if(sent_packets_not_acked[i] == 0){
 			    last_indx_sent_not_acked = i;
 			}
-                        else if(sent_packets_not_acked[i]->seq == last_ack){
+                        else if(sent_packets_not_acked[i]->seq < last_ack){
                             //remove this packet by replacing by last element
                             sent_packets_not_acked[i] = sent_packets_not_acked[last_indx_sent_not_acked-1];
                             sent_packets_not_acked[last_indx_sent_not_acked-1] = NULL;

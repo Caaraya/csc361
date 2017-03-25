@@ -27,8 +27,8 @@ and adds when a DAT is sent.(either from bulk or otherwise)
 4. How do you design and implement the error detection, notification and recovery? How to use timer? How many timers do you use? 
 How to respond to the events at the sender and receiver side, respectively? How to ensure reliable data transfer?
 
-I use one timer as in TCP fast recovery, the timer is used with select to detect when a packet was received on the sender side. the sender uses a variable array to store sent packets that havent been acknowleged yet, and if an ack was received three times it sends the next packet in the sequence from that again. If the sender receives an ack it removes the data packet with an equal sequence number to the ack. On the receiver side it has a fixed array where it stores the packets as well as the last acknowleged packet that hasn't broken the sequence, the sequence is calculated using the payload and sequence number to determine where the packets fall in the sequence, when the buffer is full it is output to the file.
+I use one timer as in TCP fast recovery, the timer is used with select to detect when a packet was received on the sender side. the sender uses a variable array to store sent packets that havent been acknowleged yet, and if an ack was received three times it sends the next packet in the sequence from that again. If the sender receives an ack it removes the data packet with an equal sequence number to the ack. On the receiver side it has a fixed array where it stores the packets as well as the last acknowleged packet that hasn't broken the sequence, the sequence is calculated using the payload and sequence number to determine where the packets fall in the sequence, the buffers are output to the file if they are less than the last acknowleged packet that is still in sequence.
 
 5. Any additional design and implementation considerations you want to get feedback from your lab instructor?
 
-I have no speciific concerns at the moment, I am open for feedback though.
+I have no specific concerns at the moment, I am open for feedback though.
