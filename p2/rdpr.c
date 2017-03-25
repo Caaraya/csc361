@@ -121,11 +121,11 @@ int main(int argc, char **argv)
 		}
 		if(select_result ==0){
 		    if(acked_to != 0){ 
-		        ACK_send(sock, &sa_host, &sender_address, sender_flen, acked_to, (int)(MAX_PAYLOAD_SIZE*window_size) ,1);
-                    }
-                    timeout.tv_sec = 2;
-                    timeout.tv_usec = 0;
-                }
+		            ACK_send(sock, &sa_host, &sender_address, sender_flen, acked_to, (int)(MAX_PAYLOAD_SIZE*window_size) ,1);
+				}
+				timeout.tv_sec = 2;
+				timeout.tv_usec = 0;
+			}
 		if(FD_ISSET(sock, &read_fds))
 		{
 			memset(buffer, '\0', MAX_PACKET_SIZE);
@@ -246,8 +246,8 @@ int main(int argc, char **argv)
 					break;
 			}
 			if (packetnotNull(&pack) && pack.type != FIN){
-                            packet_destruct(&pack);
-                        }
+				packet_destruct(&pack);
+			}
 		}
 		//reset select
 		FD_ZERO( &read_fds );

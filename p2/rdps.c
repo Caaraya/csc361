@@ -272,17 +272,17 @@ int main(int argc, char **argv)
                 }
                 break;
             case FIN: {
-		statistics.fin++;
-	        FIN_send(sock, &sa_host, &sa_peer, flen_peer, pack.seq+1, &pack);
+		        statistics.fin++;
+	            FIN_send(sock, &sa_host, &sa_peer, flen_peer, pack.seq+1, &pack);
                 log_stats(&statistics, 1);
-		int i = 0;
-		for(i = 0; i < last_indx_sent_not_acked; i++) {
-			free(sent_packets_not_acked[i]);
-		}
-		free(sent_packets_not_acked);
-                exit(0);
-                break;
-	    }
+                int i = 0;
+                for(i = 0; i < last_indx_sent_not_acked; i++) {
+                    free(sent_packets_not_acked[i]);
+                }
+                free(sent_packets_not_acked);
+                        exit(0);
+                        break;
+                }
             case RST:
                 sys_state = RESET;
                 exit(-1);
